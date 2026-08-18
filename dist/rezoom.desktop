@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Rezoom
+Comment=WhatsApp-style organizer for Claude sessions and terminals
+Exec=rezoom
+Icon=utilities-terminal
+Terminal=false
+Categories=Development;Utility;
+StartupWMClass=rezoom
