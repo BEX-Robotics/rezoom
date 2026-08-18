@@ -3,3 +3,5 @@ build/
 compile_commands.json
 .cache/
 .claude/settings.local.json
+dist/*.deb
+dist/pkg/
