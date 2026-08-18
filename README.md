@@ -51,10 +51,18 @@ from `zsh` and `tmux`.
 
 ## Spread to other machines
 
+Debian/Ubuntu:
+
 ```sh
 scripts/make-deb.sh
 sudo apt install ./dist/rezoom_<version>_amd64.deb   # pulls Qt/KF6 deps via apt
 ```
+
+Fedora/openSUSE: `rpmbuild -ba dist/rezoom.spec` (or `osc`/copr with the same
+spec). Arch: `dist/PKGBUILD` is AUR-ready (`makepkg -si` from a dir containing
+it). All recipes depend on distro packages — nothing is bundled. Flatpak and
+AppImage are deliberately absent: they bundle runtimes, and Rezoom leans on the
+host's Konsole/KF6 instead.
 
 ## CLI
 

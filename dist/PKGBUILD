@@ -1,0 +1,24 @@
+# Maintainer: Pavel <bugpwr@gmail.com>
+pkgname=rezoom
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="WhatsApp-style organizer for Claude Code sessions and terminals"
+arch=(x86_64)
+url="https://github.com/pavel-bex/rezoom"
+license=(MIT)
+# Arch ships konsolepart inside the konsole package
+depends=(qt6-base kparts kcoreaddons konsole)
+makedepends=(cmake ninja extra-cmake-modules git)
+optdepends=('zsh: default shell used in embedded terminals'
+            'tmux: persistent plain terminals and tmux-session adoption')
+source=("git+$url.git#tag=v$pkgver")
+sha256sums=('SKIP')
+
+build() {
+    cmake -B build -S "$pkgname" -G Ninja -DCMAKE_BUILD_TYPE=None
+    cmake --build build
+}
+
+package() {
+    DESTDIR="$pkgdir" cmake --install build
+}
