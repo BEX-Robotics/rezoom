@@ -9,6 +9,9 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 find_package(Qt6 REQUIRED COMPONENTS Core Widgets)
 
+# Session-bus single-instance guard; absent (macOS) the guard is a no-op.
+find_package(Qt6 QUIET COMPONENTS DBus)
+
 # KF6 provides the embeddable Konsole terminal (Linux/KDE only). Without it —
 # notably on macOS — the app still builds; chats open in an external terminal.
 find_package(ECM QUIET NO_MODULE)
@@ -55,12 +58,17 @@ add_executable(rezoom
     gui/floatwindow.cpp
     gui/adoptdialog.cpp
     gui/settingsdialog.cpp
+    gui/singleinstance.cpp
     gui/resources.qrc)
 target_compile_definitions(rezoom PRIVATE REZOOM_VERSION="${PROJECT_VERSION}")
 target_link_libraries(rezoom PRIVATE rezoomcore Qt6::Widgets)
 if(REZOOM_HAVE_KONSOLE)
     target_compile_definitions(rezoom PRIVATE REZOOM_HAVE_KONSOLE)
     target_link_libraries(rezoom PRIVATE KF6::Parts KF6::CoreAddons)
+endif()
+if(Qt6DBus_FOUND)
+    target_compile_definitions(rezoom PRIVATE REZOOM_HAVE_DBUS)
+    target_link_libraries(rezoom PRIVATE Qt6::DBus)
 endif()
 
 add_executable(rezoom-cli cli/main.cpp)
