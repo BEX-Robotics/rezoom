@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2b3137"/>
+      <stop offset="1" stop-color="#14181c"/>
+    </linearGradient>
+  </defs>
+  <!-- dark terminal ground -->
+  <rect x="8" y="8" width="240" height="240" rx="56" fill="url(#bg)"/>
+  <!-- chat bubble = the terminal -->
+  <path d="M 72 52
+           h 112
+           a 24 24 0 0 1 24 24
+           v 72
+           a 24 24 0 0 1 -24 24
+           h -78
+           l -42 38
+           v -38
+           h -16
+           a 24 24 0 0 1 -24 -24
+           v -72
+           a 24 24 0 0 1 24 -24
+           z"
+        fill="#3fa34d"/>
+  <!-- prompt chevron -->
+  <path d="M 78 82 l 30 30 -30 30" fill="none" stroke="#14181c"
+        stroke-width="17" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- cursor underscore -->
+  <rect x="126" y="128" width="46" height="16" rx="8" fill="#14181c"/>
+  <!-- presence badge: waiting for you -->
+  <circle cx="208" cy="56" r="24" fill="#e6a817" stroke="#14181c" stroke-width="9"/>
+</svg>

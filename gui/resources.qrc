@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/">
+        <file alias="rezoom.svg">../dist/rezoom.svg</file>
+    </qresource>
+</RCC>

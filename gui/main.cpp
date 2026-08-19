@@ -8,7 +8,7 @@ int main(int argc, char **argv) {
     QApplication::setApplicationName(QStringLiteral("rezoom"));
     QApplication::setApplicationDisplayName(QStringLiteral("Rezoom"));
     QApplication::setDesktopFileName(QStringLiteral("rezoom"));
-    QApplication::setWindowIcon(QIcon::fromTheme(QStringLiteral("utilities-terminal")));
+    QApplication::setWindowIcon(QIcon(QStringLiteral(":/rezoom.svg")));
 
     MainWindow window;
     window.show();
