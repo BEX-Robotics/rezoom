@@ -17,6 +17,7 @@
 #include <QPushButton>
 #include <QSettings>
 #include <QSplitter>
+#include <QStandardPaths>
 #include <QStackedWidget>
 #include <QVBoxLayout>
 
@@ -209,7 +210,7 @@ void MainWindow::onChatSelected() {
         stack->setCurrentWidget(view);
 }
 
-void MainWindow::launchChat(const QString &chatID) {
+void MainWindow::launchChat(const QString &chatID, const QString &commandOverride) {
     const Chat *c = store.find(chatID);
 
     if (!c || panes.contains(chatID))
@@ -247,7 +248,7 @@ void MainWindow::launchChat(const QString &chatID) {
     view->attachPane(pane);
 
     const QString cwd = (!c->cwd.isEmpty() && c->host.isEmpty()) ? c->cwd : QDir::homePath();
-    pane->runCommand(cwd, templates.resolveFor(*c));
+    pane->runCommand(cwd, commandOverride.isEmpty() ? templates.resolveFor(*c) : commandOverride);
     store.touch(chatID);
 
     FloatWindow *w = floatOf(view);
@@ -507,6 +508,7 @@ void MainWindow::showContextMenu(const QPoint &pos) {
     if (live && !panes.contains(id)) {
         const int pid = live->pid;
         menu.addAction(tr("Raise external window"), this, [this, pid] { raiseExternal(pid); });
+        menu.addAction(tr("Pull into Rezoom (live)"), this, [this, id] { pullInLive(id); });
     }
 
     if (c->kind == "ssh")
@@ -609,6 +611,93 @@ void MainWindow::deleteChat(const QString &chatID) {
 
     panes.remove(chatID);
     store.remove(chatID);
+}
+
+// Move a session running outside Rezoom into an embedded pane without
+// killing it: run reptyr against its pid in a fresh pane. A refused ptrace
+// attach leaves the original session untouched, so on failure we can offer
+// kill-and-resume — for claude chats that path is lossless anyway.
+void MainWindow::pullInLive(const QString &chatID) {
+    const Chat *c = store.find(chatID);
+
+    if (!c || panes.contains(chatID))
+        return;
+
+    const auto live = registry.entryForSession(c->claudeSessionID);
+
+    if (!live)
+        return;
+
+    if (QStandardPaths::findExecutable(QStringLiteral("reptyr")).isEmpty()) {
+        offerKillResume(chatID, live->pid,
+                        tr("Live pull needs reptyr (sudo apt install reptyr)."));
+        return;
+    }
+
+    const int pid = live->pid;
+    launchChat(chatID, QStringLiteral("reptyr %1").arg(pid));
+    QTimer::singleShot(2500, this, [this, chatID, pid] { verifyPull(chatID, pid); });
+}
+
+void MainWindow::verifyPull(const QString &chatID, int pid) {
+    TerminalPane *pane = panes.value(chatID);
+
+    if (!pane)
+        return; // pane gone meanwhile — nothing to verify
+
+    // On success reptyr stays alive under our shell as the tty forwarder.
+    if (!ProcessScout::findDescendants(pane->shellPID(), {"reptyr"}).isEmpty())
+        return;
+
+    offerKillResume(chatID, pid,
+                    tr("Live pull failed (reptyr's error is shown in the terminal).\n"
+                       "Usual cause: ptrace is restricted. One-time fix:\n"
+                       "sudo setcap cap_sys_ptrace+ep $(which reptyr)"));
+}
+
+void MainWindow::offerKillResume(const QString &chatID, int pid, const QString &why) {
+    const auto answer = QMessageBox::question(
+        this, tr("Pull into Rezoom"),
+        tr("%1\n\nFall back to kill-and-resume? The external session is stopped and "
+           "resumed in here; for claude chats nothing is lost \xe2\x80\x94 the "
+           // \xe2\x80\x94 = UTF-8 for em dash
+           "transcript is the state.").arg(why));
+
+    if (answer != QMessageBox::Yes)
+        return;
+
+    TerminalPane *pane = panes.value(chatID);
+
+    if (pane) { // drop the failed attempt pane
+        if (pane->shellPID() > 0)
+            kill(pane->shellPID(), SIGHUP);
+
+        onPaneTerminated(chatID);
+    }
+
+    kill(pid, SIGTERM);
+    resumeWhenGone(chatID, pid, 20);
+}
+
+// Resume the chat embedded once the external process is really gone
+// (polling ~5 s in 250 ms ticks before giving up).
+void MainWindow::resumeWhenGone(const QString &chatID, int pid, int triesLeft) {
+    if (LiveRegistry::pidAlive(pid)) {
+        if (!triesLeft) {
+            QMessageBox::warning(this, tr("Pull into Rezoom"),
+                                 tr("The external session (pid %1) did not exit.").arg(pid));
+            return;
+        }
+
+        QTimer::singleShot(250, this, [this, chatID, pid, triesLeft] {
+            resumeWhenGone(chatID, pid, triesLeft - 1);
+        });
+        return;
+    }
+
+    registry.rescan(); // drop the stale entry before relaunching
+    launchChat(chatID);
+    selectChat(chatID);
 }
 
 void MainWindow::popOut(const QString &chatID) {

@@ -34,6 +34,9 @@ claude, plain shell, ssh, tmux — is a "chat" in the left panel and stays
 - **Consent-first SSH**: ssh chats never connect on their own — the button
   press is the consent. Optional remote scan finds claude/tmux sessions on a
   host you already connect to.
+- **Pull in live**: an externally running session can be pulled into an
+  embedded pane without killing it (reptyr); if ptrace is restricted the app
+  verifies the failure and falls back to lossless kill-and-resume.
 - **Archive**: hide finished chats without losing resumability.
 
 ## Build

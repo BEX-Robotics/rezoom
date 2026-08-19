@@ -53,7 +53,11 @@ private:
     void floatChat(const QString &chatID, FloatWindow *target); // target 0 → new window
     void buildFloatMenu(QMenu *menu, const QString &chatID);
     void refreshView(const QString &chatID);
-    void launchChat(const QString &chatID);
+    void launchChat(const QString &chatID, const QString &commandOverride = QString());
+    void pullInLive(const QString &chatID);
+    void verifyPull(const QString &chatID, int pid);
+    void offerKillResume(const QString &chatID, int pid, const QString &why);
+    void resumeWhenGone(const QString &chatID, int pid, int triesLeft);
     void selectChat(const QString &chatID);
     void showContextMenu(const QPoint &pos);
     void renameChat(const QString &chatID);
