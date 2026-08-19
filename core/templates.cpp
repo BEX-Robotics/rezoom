@@ -111,3 +111,14 @@ void Templates::setConfirmClose(bool v) {
     QSettings s = confFile();
     s.setValue("general/confirm_close", v);
 }
+
+bool Templates::autoAdopt() const {
+    QSettings s = confFile();
+
+    return s.value("general/auto_adopt", true).toBool();
+}
+
+void Templates::setAutoAdopt(bool v) {
+    QSettings s = confFile();
+    s.setValue("general/auto_adopt", v);
+}

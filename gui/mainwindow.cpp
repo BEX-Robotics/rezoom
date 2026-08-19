@@ -1,5 +1,7 @@
 #include <signal.h>
 
+#include <algorithm>
+
 #include <QCloseEvent>
 #include <QDir>
 #include <QFile>
@@ -375,6 +377,51 @@ void MainWindow::onRegistryUpdated() {
     // Resume panes flip between Rezoom/raise as external sessions come and go.
     for (auto it = views.constBegin(); it != views.constEnd(); ++it)
         refreshView(it.key());
+
+    autoAdoptNew();
+}
+
+// The WhatsApp model: a new interactive claude session anywhere on the
+// machine becomes a chat by itself. Sessions inside our own panes are
+// excluded — onChildClaude() re-binds those (a /clear changes the sid, and
+// adopting the new sid here would duplicate the chat).
+void MainWindow::autoAdoptNew() {
+    if (!templates.autoAdopt())
+        return;
+
+    QSet<int> embedded;
+
+    for (TerminalPane *pane : panes)
+        for (const auto &p : ProcessScout::findDescendants(pane->shellPID(), {"claude"}))
+            embedded.insert(p.pid);
+
+    QList<LiveEntry> fresh;
+
+    for (const LiveEntry &e : registry.bySessionID())
+        if (e.kind == "interactive" && !embedded.contains(e.pid)
+            && !store.findByClaudeSession(e.sessionID))
+            fresh.append(e);
+
+    if (fresh.isEmpty())
+        return;
+
+    store.mutate([&fresh](QList<Chat> &list) {
+        for (const LiveEntry &e : fresh) {
+            const bool tracked = std::any_of(list.cbegin(), list.cend(),
+                [&e](const Chat &c) { return c.claudeSessionID == e.sessionID; });
+
+            if (tracked)
+                continue;
+
+            Chat c = Chat::create("claude");
+            c.claudeSessionID = e.sessionID;
+            c.cwd = e.cwd;
+            c.title = e.name;
+            c.preview = TranscriptIndex::previewForSession(e.sessionID);
+            c.lastActiveAt = e.updatedAt;
+            list.append(c);
+        }
+    });
 }
 
 FloatWindow *MainWindow::floatOf(ChatView *view) const {

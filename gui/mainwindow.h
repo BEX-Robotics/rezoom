@@ -74,6 +74,7 @@ private:
     void openAdopt();
     void openSettings();
     void updateArchivedButton();
+    void autoAdoptNew();
     void saveUiState();
     void restoreUiState();
     int livePaneCount() const;

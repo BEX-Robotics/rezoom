@@ -17,4 +17,5 @@ private:
     Templates *templates = 0;
     QTableWidget *table = 0;
     QCheckBox *confirmClose = 0;
+    QCheckBox *autoAdopt = 0;
 };

@@ -28,6 +28,9 @@ public:
     bool confirmClose() const;
     void setConfirmClose(bool v);
 
+    bool autoAdopt() const;
+    void setAutoAdopt(bool v);
+
 private:
     void seedDefaults();
 };

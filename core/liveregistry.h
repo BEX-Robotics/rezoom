@@ -13,6 +13,7 @@ struct LiveEntry {
     int pid = 0;
     QString sessionID;
     QString status; // "idle" | "busy" | "shell"
+    QString kind;   // "interactive" for real CLI sessions
     QString name;
     QString cwd;
     qint64 updatedAt = 0;

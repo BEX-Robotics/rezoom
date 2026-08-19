@@ -24,7 +24,7 @@ Version: $VERSION
 Architecture: $ARCH
 Maintainer: Pavel <bugpwr@gmail.com>
 Depends: libqt6widgets6, libqt6core6 | libqt6core6t64, libkf6parts6, libkf6coreaddons6, konsole-kpart, konsole
-Recommends: zsh, tmux
+Recommends: zsh, tmux, reptyr
 Section: utils
 Priority: optional
 Description: WhatsApp-style organizer for Claude Code sessions and terminals

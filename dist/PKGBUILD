@@ -10,7 +10,8 @@ license=(MIT)
 depends=(qt6-base kparts kcoreaddons konsole)
 makedepends=(cmake ninja extra-cmake-modules git)
 optdepends=('zsh: default shell used in embedded terminals'
-            'tmux: persistent plain terminals and tmux-session adoption')
+            'tmux: persistent plain terminals and tmux-session adoption'
+            'reptyr: pull running sessions into the app live')
 source=("git+$url.git#tag=v$pkgver")
 sha256sums=('SKIP')
 

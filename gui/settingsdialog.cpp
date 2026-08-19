@@ -61,6 +61,10 @@ SettingsDialog::SettingsDialog(Templates *templates, QWidget *parent)
     confirmClose->setChecked(templates->confirmClose());
     layout->addWidget(confirmClose);
 
+    autoAdopt = new QCheckBox(tr("Auto-adopt new interactive claude sessions as chats"), this);
+    autoAdopt->setChecked(templates->autoAdopt());
+    layout->addWidget(autoAdopt);
+
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
     connect(buttons, &QDialogButtonBox::accepted, this, &SettingsDialog::accept);
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
@@ -80,5 +84,6 @@ void SettingsDialog::accept() {
 
     templates->replaceAll(entries);
     templates->setConfirmClose(confirmClose->isChecked());
+    templates->setAutoAdopt(autoAdopt->isChecked());
     QDialog::accept();
 }

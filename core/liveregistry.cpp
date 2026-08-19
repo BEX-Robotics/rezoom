@@ -44,6 +44,7 @@ std::optional<LiveEntry> LiveRegistry::readPidFile(int pid) {
     e.pid = o["pid"].toInt();
     e.sessionID = o["sessionId"].toString();
     e.status = o["status"].toString();
+    e.kind = o["kind"].toString();
     e.name = o["name"].toString();
     e.cwd = o["cwd"].toString();
     e.updatedAt = static_cast<qint64>(o["updatedAt"].toDouble());

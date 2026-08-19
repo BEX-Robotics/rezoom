@@ -11,7 +11,7 @@ BuildRequires:  qt6-qtbase-devel kf6-kparts-devel kf6-kcoreaddons-devel
 # konsolepart provides the embedded terminal at runtime
 Requires:       konsole-part
 Requires:       konsole
-Recommends:     zsh tmux
+Recommends:     zsh tmux reptyr
 
 %description
 Chat-list organizer for Claude Code sessions and terminals: live presence,
