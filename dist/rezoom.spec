@@ -3,7 +3,7 @@ Version:        0.1.0
 Release:        1%{?dist}
 Summary:        WhatsApp-style organizer for Claude Code sessions and terminals
 License:        MIT
-URL:            https://github.com/pavel-bex/rezoom
+URL:            https://github.com/BEX-Robotics/rezoom
 Source0:        %{url}/archive/v%{version}/%{name}-%{version}.tar.gz
 
 BuildRequires:  gcc-c++ cmake ninja-build extra-cmake-modules

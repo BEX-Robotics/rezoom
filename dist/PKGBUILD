@@ -4,7 +4,7 @@ pkgver=0.1.0
 pkgrel=1
 pkgdesc="WhatsApp-style organizer for Claude Code sessions and terminals"
 arch=(x86_64)
-url="https://github.com/pavel-bex/rezoom"
+url="https://github.com/BEX-Robotics/rezoom"
 license=(MIT)
 # Arch ships konsolepart inside the konsole package
 depends=(qt6-base kparts kcoreaddons konsole)
