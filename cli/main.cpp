@@ -1,5 +1,7 @@
 #include <stdio.h>
 
+#include <algorithm>
+
 #include <QCoreApplication>
 #include <QDir>
 #include <QFile>
@@ -74,23 +76,30 @@ static int cmdResume(SessionStore &store, LiveRegistry &registry, Templates &tem
 }
 
 static int cmdAdoptRunning(SessionStore &store, LiveRegistry &registry) {
-    int n = 0;
+    int adopted = 0;
 
-    for (const LiveEntry &e : registry.bySessionID()) {
-        if (store.findByClaudeSession(e.sessionID))
-            continue;
+    // Dedup + append inside one locked read-modify-write, so two parallel
+    // adopt-running invocations can never double-adopt a session.
+    store.mutate([&registry, &adopted](QList<Chat> &list) {
+        for (const LiveEntry &e : registry.bySessionID()) {
+            const bool tracked = std::any_of(list.cbegin(), list.cend(),
+                [&e](const Chat &c) { return c.claudeSessionID == e.sessionID; });
 
-        Chat c = Chat::create("claude");
-        c.claudeSessionID = e.sessionID;
-        c.cwd = e.cwd;
-        c.title = e.name;
-        c.preview = TranscriptIndex::previewForSession(e.sessionID);
-        c.lastActiveAt = e.updatedAt;
-        store.add(c);
-        ++n;
-    }
+            if (tracked)
+                continue;
 
-    printf("adopted %d running session(s)\n", n);
+            Chat c = Chat::create("claude");
+            c.claudeSessionID = e.sessionID;
+            c.cwd = e.cwd;
+            c.title = e.name;
+            c.preview = TranscriptIndex::previewForSession(e.sessionID);
+            c.lastActiveAt = e.updatedAt;
+            list.append(c);
+            ++adopted;
+        }
+    });
+
+    printf("adopted %d running session(s)\n", adopted);
 
     return 0;
 }

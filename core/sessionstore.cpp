@@ -1,15 +1,22 @@
 #include <QDateTime>
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
+#include <QFileSystemWatcher>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QLockFile>
 #include <QSaveFile>
 
 #include "sessionstore.h"
 
 QString SessionStore::dataDir() {
-    QString d = QDir::homePath() + "/.local/share/rezoom";
+    QString d = qEnvironmentVariable("REZOOM_DATA_DIR");
+
+    if (d.isEmpty())
+        d = QDir::homePath() + "/.local/share/rezoom";
+
     QDir().mkpath(d);
 
     return d;
@@ -17,18 +24,62 @@ QString SessionStore::dataDir() {
 
 SessionStore::SessionStore(QObject *parent) : QObject(parent) {
     path = dataDir() + "/sessions.json";
-    const bool existed = QFile::exists(path);
-    load();
+    loadFromDisk();
 
-    if (!existed) {
-        importLegacySnapshot();
+    // First run: seed from claude-freeze's snapshot. The existence check is
+    // repeated inside the lock — N processes racing on a fresh store must
+    // yield exactly one import.
+    if (!QFile::exists(path))
+        mutate([p = path](QList<Chat> &list) {
+            if (QFile::exists(p))
+                return; // another process seeded the store first
 
-        if (!chatList.isEmpty())
-            save();
-    }
+            importLegacySnapshot(list);
+        });
+
+    watcher = new QFileSystemWatcher(this);
+    watcher->addPath(dataDir());
+    reloadTimer.setSingleShot(true);
+    reloadTimer.setInterval(200);
+    connect(watcher, &QFileSystemWatcher::directoryChanged, this,
+            [this] { reloadTimer.start(); });
+    connect(&reloadTimer, &QTimer::timeout, this, &SessionStore::reloadIfChanged);
 }
 
-void SessionStore::load() {
+// Every mutation re-reads the current on-disk state under the lock and
+// re-applies just its own operation to it, so a write never publishes a
+// stale copy of someone else's changes.
+void SessionStore::mutate(const std::function<void(QList<Chat> &)> &op) {
+    QLockFile lock(path + ".lock");
+
+    if (!lock.tryLock(5000))
+        qWarning("rezoom: sessions.json lock timed out after 5s — writing anyway");
+
+    loadFromDisk();
+    op(chatList);
+    writeToDisk();
+    emit changed();
+}
+
+void SessionStore::reloadIfChanged() {
+    const QFileInfo fi(path);
+
+    if (fi.lastModified().toMSecsSinceEpoch() == knownMtimeMs && fi.size() == knownSize)
+        return;
+
+    loadFromDisk();
+    emit changed();
+}
+
+void SessionStore::rememberStamp() {
+    const QFileInfo fi(path);
+    knownMtimeMs = fi.lastModified().toMSecsSinceEpoch();
+    knownSize = fi.size();
+}
+
+void SessionStore::loadFromDisk() {
+    chatList.clear();
+    rememberStamp();
     QFile f(path);
 
     if (!f.open(QIODevice::ReadOnly))
@@ -36,13 +87,12 @@ void SessionStore::load() {
 
     const QJsonDocument doc = QJsonDocument::fromJson(f.readAll());
     const QJsonArray arr = doc.object()["chats"].toArray();
-    chatList.clear();
 
     for (const auto &v : arr)
         chatList.append(Chat::fromJson(v.toObject()));
 }
 
-void SessionStore::save() {
+void SessionStore::writeToDisk() {
     QJsonArray arr;
 
     for (const Chat &c : chatList)
@@ -57,6 +107,7 @@ void SessionStore::save() {
 
     f.write(QJsonDocument(root).toJson(QJsonDocument::Indented));
     f.commit();
+    rememberStamp();
 }
 
 const Chat *SessionStore::find(const QString &id) const {
@@ -79,47 +130,43 @@ const Chat *SessionStore::findByClaudeSession(const QString &sessionID) const {
 }
 
 void SessionStore::add(const Chat &c) {
-    chatList.append(c);
-    save();
-    emit changed();
+    mutate([&c](QList<Chat> &list) { list.append(c); });
+}
+
+void SessionStore::addBatch(const QList<Chat> &cs) {
+    mutate([&cs](QList<Chat> &list) { list.append(cs); });
 }
 
 void SessionStore::update(const Chat &c) {
-    for (Chat &existing : chatList) {
-        if (existing.id == c.id) {
-            existing = c;
-            save();
-            emit changed();
-            return;
+    mutate([&c](QList<Chat> &list) {
+        for (Chat &existing : list) {
+            if (existing.id == c.id) {
+                existing = c;
+                return;
+            }
         }
-    }
+
+        // id gone: deleted by another process meanwhile — deletion wins
+    });
 }
 
 void SessionStore::remove(const QString &id) {
-    for (int i = 0; i < chatList.size(); ++i) {
-        if (chatList[i].id == id) {
-            chatList.removeAt(i);
-            save();
-            emit changed();
-            return;
-        }
-    }
+    mutate([&id](QList<Chat> &list) {
+        list.removeIf([&id](const Chat &c) { return c.id == id; });
+    });
 }
 
 void SessionStore::touch(const QString &id) {
-    for (Chat &c : chatList) {
-        if (c.id == id) {
-            c.lastActiveAt = QDateTime::currentMSecsSinceEpoch();
-            save();
-            emit changed();
-            return;
-        }
-    }
+    mutate([&id](QList<Chat> &list) {
+        for (Chat &c : list)
+            if (c.id == id)
+                c.lastActiveAt = QDateTime::currentMSecsSinceEpoch();
+    });
 }
 
 // One-time seed from claude-freeze's snapshot:
 // cwd \t sid \t exact|guessed \t "mm-dd HH:MM | preview"
-void SessionStore::importLegacySnapshot() {
+void SessionStore::importLegacySnapshot(QList<Chat> &list) {
     QFile f(QDir::homePath() + "/.claude/session-snapshot.tsv");
 
     if (!f.open(QIODevice::ReadOnly | QIODevice::Text))
@@ -150,6 +197,6 @@ void SessionStore::importLegacySnapshot() {
         if (c.title.isEmpty())
             c.title = QDir(c.cwd).dirName();
 
-        chatList.append(c);
+        list.append(c);
     }
 }
