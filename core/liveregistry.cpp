@@ -1,3 +1,6 @@
+#include <cerrno>
+#include <csignal>
+
 #include <QDir>
 #include <QFile>
 #include <QFileSystemWatcher>
@@ -26,7 +29,8 @@ LiveRegistry::LiveRegistry(QObject *parent) : QObject(parent) {
 }
 
 bool LiveRegistry::pidAlive(int pid) {
-    return pid > 0 && QFile::exists(QStringLiteral("/proc/%1").arg(pid));
+    // kill(pid, 0) instead of /proc so this works on macOS too.
+    return pid > 0 && (::kill(pid, 0) == 0 || errno == EPERM);
 }
 
 std::optional<LiveEntry> LiveRegistry::readPidFile(int pid) {

@@ -7,7 +7,111 @@
 
 #include "processscout.h"
 
+#ifdef Q_OS_MACOS
+#include <libproc.h>
+#include <sys/sysctl.h>
+
+#include <cstring>
+#include <vector>
+#endif
+
 namespace ProcessScout {
+
+#ifdef Q_OS_MACOS
+
+// No /proc on macOS: snapshot the process table via sysctl and read names /
+// argv via libproc / KERN_PROCARGS2.
+static std::vector<kinfo_proc> allProcs() {
+    int mib[3] = {CTL_KERN, KERN_PROC, KERN_PROC_ALL};
+    size_t size = 0;
+
+    if (sysctl(mib, 3, nullptr, &size, nullptr, 0) != 0)
+        return {};
+
+    std::vector<kinfo_proc> procs(size / sizeof(kinfo_proc) + 16);
+    size = procs.size() * sizeof(kinfo_proc);
+
+    if (sysctl(mib, 3, procs.data(), &size, nullptr, 0) != 0)
+        return {};
+
+    procs.resize(size / sizeof(kinfo_proc));
+
+    return procs;
+}
+
+QList<int> children(int pid) {
+    QList<int> out;
+
+    for (const kinfo_proc &p : allProcs())
+        if (p.kp_eproc.e_ppid == pid)
+            out.append(p.kp_proc.p_pid);
+
+    return out;
+}
+
+QString comm(int pid) {
+    char name[2 * MAXCOMLEN + 1] = {};
+
+    if (proc_name(pid, name, sizeof(name)) <= 0)
+        return {};
+
+    return QString::fromUtf8(name);
+}
+
+QStringList cmdline(int pid) {
+    int mib[3] = {CTL_KERN, KERN_PROCARGS2, pid};
+    size_t size = 0;
+
+    if (sysctl(mib, 3, nullptr, &size, nullptr, 0) != 0 || size < sizeof(int))
+        return {};
+
+    std::vector<char> buf(size);
+
+    if (sysctl(mib, 3, buf.data(), &size, nullptr, 0) != 0 || size < sizeof(int))
+        return {};
+
+    // Layout: argc, exec_path\0, padding \0s, argv[0]\0 argv[1]\0 ...
+    int argc = 0;
+    memcpy(&argc, buf.data(), sizeof(int));
+
+    const char *p = buf.data() + sizeof(int);
+    const char *end = buf.data() + size;
+
+    while (p < end && *p) // skip exec_path
+        ++p;
+
+    while (p < end && !*p) // skip padding
+        ++p;
+
+    QStringList parts;
+
+    for (int i = 0; i < argc && p < end; ++i) {
+        const QString arg = QString::fromUtf8(p);
+        parts.append(arg);
+        p += strlen(p) + 1;
+    }
+
+    return parts;
+}
+
+QList<ProcInfo> runningSsh() {
+    QList<ProcInfo> out;
+    const uid_t uid = getuid();
+
+    for (const kinfo_proc &p : allProcs()) {
+        if (p.kp_eproc.e_pcred.p_ruid != uid)
+            continue;
+
+        const int pid = p.kp_proc.p_pid;
+
+        if (comm(pid) == "ssh")
+            out.append({pid, "ssh", cmdline(pid)});
+    }
+
+    return out;
+}
+
+#else
 
 QList<int> children(int pid) {
     QList<int> out;
@@ -24,6 +128,8 @@ QList<int> children(int pid) {
     return out;
 }
 
+#endif
+
 QList<int> descendants(int pid) {
     QList<int> out;
     QList<int> queue = children(pid);
@@ -36,6 +142,8 @@ QList<int> descendants(int pid) {
 
     return out;
 }
+
+#ifndef Q_OS_MACOS
 
 QString comm(int pid) {
     QFile f(QStringLiteral("/proc/%1/comm").arg(pid));
@@ -61,6 +169,8 @@ QStringList cmdline(int pid) {
 
     return parts;
 }
+
+#endif
 
 QList<ProcInfo> findDescendants(int shellPID, const QStringList &names) {
     QList<ProcInfo> out;
@@ -97,6 +207,8 @@ QList<TmuxSession> tmuxSessions() {
     return out;
 }
 
+#ifndef Q_OS_MACOS
+
 QList<ProcInfo> runningSsh() {
     QList<ProcInfo> out;
     const uint uid = getuid();
@@ -119,6 +231,8 @@ QList<ProcInfo> runningSsh() {
 
     return out;
 }
+
+#endif
 
 QString sshDestination(const QStringList &cmdline) {
     // ssh options that consume the next token.

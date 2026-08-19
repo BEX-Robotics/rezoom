@@ -38,6 +38,8 @@ claude, plain shell, ssh, tmux — is a "chat" in the left panel and stays
 
 ## Build
 
+Linux:
+
 ```sh
 sudo apt install qt6-base-dev libkf6parts-dev libkf6service-dev \
                  libkf6coreaddons-dev libkf6i18n-dev extra-cmake-modules
@@ -48,6 +50,20 @@ build/rezoom
 
 Runtime needs `konsole-kpart` (the embeddable Konsole component) and benefits
 from `zsh` and `tmux`.
+
+macOS:
+
+```sh
+brew install cmake ninja qt
+cmake -B build -G Ninja -DCMAKE_PREFIX_PATH="$(brew --prefix)"
+ninja -C build
+build/rezoom
+```
+
+KF6/Konsole is KDE-only, so macOS builds have no embedded terminals: opening a
+chat offers to launch it in a Terminal.app window instead (same for
+`rezoom-cli resume`). Presence tracking, adopt, archive and the rest work the
+same.
 
 ## Spread to other machines
 

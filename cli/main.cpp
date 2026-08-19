@@ -5,6 +5,7 @@
 #include <QFile>
 #include <QProcess>
 
+#include "core/externalterminal.h"
 #include "core/liveregistry.h"
 #include "core/sessionstore.h"
 #include "core/templates.h"
@@ -12,17 +13,8 @@
 
 // rezoom-cli — scriptable access to the same store the GUI uses.
 //   list                     chats + live presence (TSV)
-//   resume <query> [--print] resume a chat in a Konsole window (or print the command)
+//   resume <query> [--print] resume a chat in a terminal window (or print the command)
 //   adopt-running            adopt every untracked running claude session
-
-static QString konsoleBinary() {
-    const QString wrapper = QDir::homePath() + "/.local/bin/konsole";
-
-    if (QFile::exists(wrapper))
-        return wrapper;
-
-    return QStringLiteral("konsole");
-}
 
 static int cmdList(SessionStore &store, LiveRegistry &registry) {
     for (const Chat &c : store.chats()) {
@@ -75,15 +67,8 @@ static int cmdResume(SessionStore &store, LiveRegistry &registry, Templates &tem
         return 0;
     }
 
-    QStringList args;
-
-    if (!c->cwd.isEmpty() && c->host.isEmpty())
-        args << "--workdir" << c->cwd;
-
-    if (!command.isEmpty())
-        args << "-e" << "zsh" << "-ic" << command;
-
-    QProcess::startDetached(konsoleBinary(), args);
+    ExternalTerminal::launch((!c->cwd.isEmpty() && c->host.isEmpty()) ? c->cwd : QString(),
+                             command);
 
     return 0;
 }

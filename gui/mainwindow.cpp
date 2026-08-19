@@ -20,6 +20,7 @@
 #include <QStackedWidget>
 #include <QVBoxLayout>
 
+#include "core/externalterminal.h"
 #include "core/processscout.h"
 #include "core/transcriptindex.h"
 
@@ -33,26 +34,8 @@
 #include "settingsdialog.h"
 #include "terminalpane.h"
 
-// The user's tinted-profile wrapper if present, plain konsole otherwise.
-static QString konsoleBinary() {
-    const QString wrapper = QDir::homePath() + "/.local/bin/konsole";
-
-    if (QFile::exists(wrapper))
-        return wrapper;
-
-    return QStringLiteral("konsole");
-}
-
 static void launchInKonsole(const QString &cwd, const QString &command) {
-    QStringList args;
-
-    if (!cwd.isEmpty())
-        args << "--workdir" << cwd;
-
-    if (!command.trimmed().isEmpty())
-        args << "-e" << "zsh" << "-ic" << command;
-
-    QProcess::startDetached(konsoleBinary(), args);
+    ExternalTerminal::launch(cwd, command);
 }
 
 MainWindow::MainWindow() {
@@ -236,9 +219,22 @@ void MainWindow::launchChat(const QString &chatID) {
     auto *pane = new TerminalPane(chatID, c->tint, view);
 
     if (!pane->valid()) {
-        QMessageBox::warning(this, tr("Rezoom"),
-                             tr("Could not load the Konsole component:\n%1").arg(pane->errorText()));
+        // No embeddable terminal (no konsolepart, or non-KDE platform like
+        // macOS) — open the chat in an external terminal window instead.
+        const QString why = pane->errorText();
         delete pane;
+
+        const auto answer = QMessageBox::question(
+            this, tr("Rezoom"),
+            tr("No embedded terminal (%1).\n\nOpen this chat in an external terminal window?")
+                .arg(why));
+
+        if (answer == QMessageBox::Yes) {
+            launchInKonsole((!c->cwd.isEmpty() && c->host.isEmpty()) ? c->cwd : QDir::homePath(),
+                            templates.resolveFor(*c));
+            store.touch(chatID);
+        }
+
         return;
     }
 
