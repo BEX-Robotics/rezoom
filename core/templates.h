@@ -31,6 +31,9 @@ public:
     bool autoAdopt() const;
     void setAutoAdopt(bool v);
 
+    bool resumeOnStart() const;
+    void setResumeOnStart(bool v);
+
 private:
     void seedDefaults();
 };

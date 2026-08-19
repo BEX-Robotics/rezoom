@@ -3,6 +3,7 @@
 
 class QCheckBox;
 class QTableWidget;
+class QVBoxLayout;
 class Templates;
 
 // Resumable-command template editor + app preferences.
@@ -13,9 +14,11 @@ public:
 
 private:
     void accept() override;
+    void addPrefChecks(QVBoxLayout *layout);
 
     Templates *templates = 0;
     QTableWidget *table = 0;
     QCheckBox *confirmClose = 0;
     QCheckBox *autoAdopt = 0;
+    QCheckBox *resumeOnStart = 0;
 };

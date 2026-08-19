@@ -61,6 +61,43 @@ MainWindow::MainWindow() {
 
     if (store.chats().isEmpty())
         QMetaObject::invokeMethod(this, &MainWindow::openAdopt, Qt::QueuedConnection);
+
+    if (templates.resumeOnStart())
+        QTimer::singleShot(400, this, &MainWindow::resumePrevious);
+}
+
+// The running-embedded set is persisted on every launch/termination, not
+// just on quit — so auto-resume works after a crash or a hard kill too.
+void MainWindow::rememberRunning() {
+    QStringList ids;
+
+    for (auto it = panes.constBegin(); it != panes.constEnd(); ++it)
+        ids << it.key();
+
+    QSettings s(QStringLiteral("rezoom"), QStringLiteral("rezoom"));
+    s.setValue("ui/runningChats", ids);
+}
+
+void MainWindow::resumePrevious() {
+    QSettings s(QStringLiteral("rezoom"), QStringLiteral("rezoom"));
+    const QStringList ids = s.value("ui/runningChats").toStringList();
+    int slot = 0;
+
+    for (const QString &id : ids) {
+        const Chat *c = store.find(id);
+
+        if (!c || panes.contains(id))
+            continue;
+
+        // Resumed externally since we quit? Leave it there — raise works.
+        if (registry.entryForSession(c->claudeSessionID))
+            continue;
+
+        QTimer::singleShot(400 * slot++, this, [this, id] {
+            if (!panes.contains(id))
+                launchChat(id);
+        });
+    }
 }
 
 QWidget *MainWindow::buildLeftPanel() {
@@ -247,6 +284,7 @@ void MainWindow::launchChat(const QString &chatID, const QString &commandOverrid
     connect(pane, &TerminalPane::childTmux, this, &MainWindow::onChildTmux);
 
     panes.insert(chatID, pane);
+    rememberRunning();
     view->attachPane(pane);
 
     const QString cwd = (!c->cwd.isEmpty() && c->host.isEmpty()) ? c->cwd : QDir::homePath();
@@ -266,6 +304,7 @@ void MainWindow::onPaneTerminated(const QString &chatID) {
         return;
 
     TerminalPane *pane = panes.take(chatID);
+    rememberRunning();
     ChatView *view = views.value(chatID);
 
     if (view)

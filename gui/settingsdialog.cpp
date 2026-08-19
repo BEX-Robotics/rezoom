@@ -57,6 +57,15 @@ SettingsDialog::SettingsDialog(Templates *templates, QWidget *parent)
     row->addStretch(1);
     layout->addLayout(row);
 
+    addPrefChecks(layout);
+
+    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
+    connect(buttons, &QDialogButtonBox::accepted, this, &SettingsDialog::accept);
+    connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
+    layout->addWidget(buttons);
+}
+
+void SettingsDialog::addPrefChecks(QVBoxLayout *layout) {
     confirmClose = new QCheckBox(tr("Confirm before closing with live embedded sessions"), this);
     confirmClose->setChecked(templates->confirmClose());
     layout->addWidget(confirmClose);
@@ -65,10 +74,9 @@ SettingsDialog::SettingsDialog(Templates *templates, QWidget *parent)
     autoAdopt->setChecked(templates->autoAdopt());
     layout->addWidget(autoAdopt);
 
-    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
-    connect(buttons, &QDialogButtonBox::accepted, this, &SettingsDialog::accept);
-    connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
-    layout->addWidget(buttons);
+    resumeOnStart = new QCheckBox(tr("On startup, resume the sessions that were running"), this);
+    resumeOnStart->setChecked(templates->resumeOnStart());
+    layout->addWidget(resumeOnStart);
 }
 
 void SettingsDialog::accept() {
@@ -85,5 +93,6 @@ void SettingsDialog::accept() {
     templates->replaceAll(entries);
     templates->setConfirmClose(confirmClose->isChecked());
     templates->setAutoAdopt(autoAdopt->isChecked());
+    templates->setResumeOnStart(resumeOnStart->isChecked());
     QDialog::accept();
 }

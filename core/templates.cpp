@@ -122,3 +122,14 @@ void Templates::setAutoAdopt(bool v) {
     QSettings s = confFile();
     s.setValue("general/auto_adopt", v);
 }
+
+bool Templates::resumeOnStart() const {
+    QSettings s = confFile();
+
+    return s.value("general/resume_on_start", true).toBool();
+}
+
+void Templates::setResumeOnStart(bool v) {
+    QSettings s = confFile();
+    s.setValue("general/resume_on_start", v);
+}

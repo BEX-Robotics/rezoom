@@ -75,6 +75,8 @@ private:
     void openSettings();
     void updateArchivedButton();
     void autoAdoptNew();
+    void rememberRunning();  // persist which chats have live panes (crash-safe)
+    void resumePrevious();   // relaunch them on startup, staggered
     void saveUiState();
     void restoreUiState();
     int livePaneCount() const;
