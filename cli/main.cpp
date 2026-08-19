@@ -117,6 +117,11 @@ int main(int argc, char **argv) {
     const QStringList args = app.arguments();
     const QString cmd = args.value(1);
 
+    if (cmd == "--version") {
+        printf("rezoom-cli %s\n", REZOOM_VERSION);
+        return 0;
+    }
+
     SessionStore store;
     Templates templates;
     LiveRegistry registry;

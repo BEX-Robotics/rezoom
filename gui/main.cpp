@@ -1,9 +1,19 @@
+#include <stdio.h>
+#include <string.h>
+
 #include <QApplication>
 #include <QIcon>
 
 #include "mainwindow.h"
 
 int main(int argc, char **argv) {
+    for (int i = 1; i < argc; ++i) {
+        if (!strcmp(argv[i], "--version")) {
+            printf("rezoom %s\n", REZOOM_VERSION);
+            return 0;
+        }
+    }
+
     QApplication app(argc, argv);
     QApplication::setApplicationName(QStringLiteral("rezoom"));
     QApplication::setApplicationDisplayName(QStringLiteral("Rezoom"));

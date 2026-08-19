@@ -36,9 +36,11 @@ add_executable(rezoom
     gui/adoptdialog.cpp
     gui/settingsdialog.cpp
     gui/resources.qrc)
+target_compile_definitions(rezoom PRIVATE REZOOM_VERSION="${PROJECT_VERSION}")
 target_link_libraries(rezoom PRIVATE rezoomcore Qt6::Widgets KF6::Parts KF6::CoreAddons)
 
 add_executable(rezoom-cli cli/main.cpp)
+target_compile_definitions(rezoom-cli PRIVATE REZOOM_VERSION="${PROJECT_VERSION}")
 target_link_libraries(rezoom-cli PRIVATE rezoomcore)
 
 include(GNUInstallDirs)
