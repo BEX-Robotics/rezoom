@@ -21,4 +21,5 @@ private:
     QCheckBox *confirmClose = 0;
     QCheckBox *autoAdopt = 0;
     QCheckBox *resumeOnStart = 0;
+    QCheckBox *autoStart = 0;
 };

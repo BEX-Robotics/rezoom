@@ -77,6 +77,10 @@ void SettingsDialog::addPrefChecks(QVBoxLayout *layout) {
     resumeOnStart = new QCheckBox(tr("On startup, resume the sessions that were running"), this);
     resumeOnStart->setChecked(templates->resumeOnStart());
     layout->addWidget(resumeOnStart);
+
+    autoStart = new QCheckBox(tr("Start Rezoom at login"), this);
+    autoStart->setChecked(templates->autoStart());
+    layout->addWidget(autoStart);
 }
 
 void SettingsDialog::accept() {
@@ -94,5 +98,6 @@ void SettingsDialog::accept() {
     templates->setConfirmClose(confirmClose->isChecked());
     templates->setAutoAdopt(autoAdopt->isChecked());
     templates->setResumeOnStart(resumeOnStart->isChecked());
+    templates->setAutoStart(autoStart->isChecked());
     QDialog::accept();
 }

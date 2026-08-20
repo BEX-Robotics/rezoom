@@ -34,6 +34,11 @@ public:
     bool resumeOnStart() const;
     void setResumeOnStart(bool v);
 
+    // XDG autostart (~/.config/autostart/rezoom.desktop); the file itself
+    // is the state — nothing to fall out of sync.
+    bool autoStart() const;
+    void setAutoStart(bool v);
+
 private:
     void seedDefaults();
     void seedLater();

@@ -1,4 +1,9 @@
+#include <QCoreApplication>
+#include <QDir>
+#include <QFile>
+#include <QFileInfo>
 #include <QSettings>
+#include <QStandardPaths>
 
 #include "chat.h"
 #include "templates.h"
@@ -113,6 +118,40 @@ QString Templates::expand(QString tpl, const Chat &c) {
     tpl.replace("{title}", c.title);
 
     return tpl.trimmed();
+}
+
+static QString autostartPath() {
+    return QStandardPaths::writableLocation(QStandardPaths::ConfigLocation)
+        + "/autostart/rezoom.desktop";
+}
+
+bool Templates::autoStart() const {
+    return QFile::exists(autostartPath());
+}
+
+void Templates::setAutoStart(bool v) {
+    if (!v) {
+        QFile::remove(autostartPath());
+        return;
+    }
+
+    // Prefer the stable ~/.local/bin symlink over the build-dir binary.
+    QString exec = QStandardPaths::findExecutable(QStringLiteral("rezoom"));
+
+    if (exec.isEmpty())
+        exec = QCoreApplication::applicationFilePath();
+
+    QDir().mkpath(QFileInfo(autostartPath()).path());
+    QFile f(autostartPath());
+
+    if (!f.open(QIODevice::WriteOnly | QIODevice::Text))
+        return;
+
+    f.write(QStringLiteral("[Desktop Entry]\nType=Application\nName=Rezoom\n"
+                           "Exec=%1\nIcon=rezoom\nTerminal=false\n"
+                           "X-KDE-autostart-phase=2\n")
+                .arg(exec)
+                .toUtf8());
 }
 
 bool Templates::confirmClose() const {
