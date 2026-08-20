@@ -156,7 +156,7 @@ QWidget *MainWindow::buildRightPanel() {
     stack = new QStackedWidget(this);
 
     auto *label = new QLabel(
-        tr("Select a session on the left \xe2\x80\x94 or hit + New."), // \xe2\x80\x94 = "—" (em dash)
+        tr("Select a session on the left \xe2\x80\x94 or hit + New (Ctrl+Shift+N)."), // \xe2\x80\x94 = "—" (em dash)
         this);
     label->setAlignment(Qt::AlignCenter);
     label->setStyleSheet("color: palette(placeholder-text); font-size: 15px;");
@@ -166,13 +166,22 @@ QWidget *MainWindow::buildRightPanel() {
     return stack;
 }
 
+// Ctrl+Shift chords, Konsole-style — plain Ctrl+N etc. must keep reaching
+// the shells inside embedded terminals.
 void MainWindow::buildNewMenu(QPushButton *button) {
     auto *menu = new QMenu(button);
-    menu->addAction(tr("New Claude session\xe2\x80\xa6"), this, &MainWindow::newClaude);
-    menu->addAction(tr("New terminal\xe2\x80\xa6"), this, &MainWindow::newTerminal);
-    menu->addAction(tr("New SSH\xe2\x80\xa6"), this, &MainWindow::newSsh);
+
+    const auto add = [this, menu](const QString &text, const char *chord, auto slot) {
+        QAction *action = menu->addAction(text, this, slot);
+        action->setShortcut(QKeySequence(QLatin1String(chord)));
+        addAction(action); // window-wide, not only while the menu is open
+    };
+
+    add(tr("New Claude session\xe2\x80\xa6"), "Ctrl+Shift+N", &MainWindow::newClaude);
+    add(tr("New terminal\xe2\x80\xa6"), "Ctrl+Shift+T", &MainWindow::newTerminal);
+    add(tr("New SSH\xe2\x80\xa6"), "Ctrl+Shift+S", &MainWindow::newSsh);
     menu->addSeparator();
-    menu->addAction(tr("Adopt sessions\xe2\x80\xa6"), this, &MainWindow::openAdopt);
+    add(tr("Adopt sessions\xe2\x80\xa6"), "Ctrl+Shift+A", &MainWindow::openAdopt);
     button->setMenu(menu);
 }
 
