@@ -91,9 +91,15 @@ static int cmdAdoptRunning(SessionStore &store, LiveRegistry &registry) {
             Chat c = Chat::create("claude");
             c.claudeSessionID = e.sessionID;
             c.cwd = e.cwd;
-            c.title = e.name;
-            c.preview = TranscriptIndex::previewForSession(e.sessionID);
             c.lastActiveAt = e.updatedAt;
+            const QString first = TranscriptIndex::previewForSession(e.sessionID);
+            const bool derived = e.nameSource == "derived" || e.name.isEmpty();
+            c.title = (derived && !first.isEmpty()) ? first.left(40) : e.name;
+            c.preview = TranscriptIndex::lastMessagePreview(e.sessionID);
+
+            if (c.preview.isEmpty())
+                c.preview = first;
+
             list.append(c);
             ++adopted;
         }

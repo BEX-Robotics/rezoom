@@ -28,8 +28,11 @@ static QString statusPreview(const QString &status, const QString &fallback) {
         // \xe2\x9c\xb3 = UTF-8 for "✳", \xe2\x80\xa6 = "…" (ellipsis)
         return QString::fromUtf8("\xe2\x9c\xb3 working\xe2\x80\xa6");
 
-    if (status == "idle")
+    if (status == "idle" && fallback.isEmpty())
         return QStringLiteral("waiting for you");
+
+    if (status == "idle")
+        return fallback; // the amber dot already says "waiting"
 
     if (status == "shell")
         return QStringLiteral("at shell");

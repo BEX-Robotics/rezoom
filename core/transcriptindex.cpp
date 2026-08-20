@@ -113,6 +113,47 @@ QString TranscriptIndex::pathForSession(const QString &sessionID) {
     return {};
 }
 
+QString TranscriptIndex::lastMessagePreview(const QString &sessionID) {
+    const QString path = pathForSession(sessionID);
+
+    if (path.isEmpty())
+        return {};
+
+    QFile f(path);
+
+    if (!f.open(QIODevice::ReadOnly))
+        return {};
+
+    const qint64 tailBytes = 64 * 1024;
+
+    if (f.size() > tailBytes)
+        f.seek(f.size() - tailBytes);
+
+    const QString tail = QString::fromUtf8(f.readAll());
+    static const QRegularExpression userStrRe(
+        "\"type\":\"user\",\"message\":\\{\"role\":\"user\",\"content\":\"((?:[^\"\\\\]|\\\\.){1,300})");
+    static const QRegularExpression textBlockRe(
+        "\"type\":\"text\",\"text\":\"((?:[^\"\\\\]|\\\\.){1,300})");
+    QString best;
+    qsizetype bestPos = -1;
+
+    for (const auto &re : {userStrRe, textBlockRe}) {
+        auto it = re.globalMatch(tail);
+
+        while (it.hasNext()) {
+            const auto m = it.next();
+            const QString cand = unescapePreview(m.captured(1));
+
+            if (!cand.isEmpty() && !isNoisePreview(cand) && m.capturedStart(1) > bestPos) {
+                best = cand;
+                bestPos = m.capturedStart(1);
+            }
+        }
+    }
+
+    return best;
+}
+
 QString TranscriptIndex::previewForSession(const QString &sessionID) {
     const QString path = pathForSession(sessionID);
 

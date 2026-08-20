@@ -53,6 +53,7 @@ std::optional<LiveEntry> LiveRegistry::readPidFile(int pid) {
     e.status = o["status"].toString();
     e.kind = o["kind"].toString();
     e.name = o["name"].toString();
+    e.nameSource = o["nameSource"].toString();
     e.cwd = o["cwd"].toString();
     e.updatedAt = static_cast<qint64>(o["updatedAt"].toDouble());
 

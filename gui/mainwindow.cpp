@@ -16,6 +16,7 @@
 #include <QMessageBox>
 #include <QProcess>
 #include <QProcessEnvironment>
+#include <QRegularExpression>
 #include <QPushButton>
 #include <QSettings>
 #include <QSplitter>
@@ -62,8 +63,38 @@ MainWindow::MainWindow() {
     if (store.chats().isEmpty())
         QMetaObject::invokeMethod(this, &MainWindow::openAdopt, Qt::QueuedConnection);
 
+    fixDerivedTitlesOnce();
+
     if (templates.resumeOnStart())
         QTimer::singleShot(400, this, &MainWindow::resumePrevious);
+}
+
+// Chats adopted before v1.1 carry claude's machine-derived names
+// ("pavel-f4") — retitle them from their transcripts, once.
+void MainWindow::fixDerivedTitlesOnce() {
+    QSettings s(QStringLiteral("rezoom"), QStringLiteral("rezoom"));
+
+    if (s.value("general/titles_fixed").toBool())
+        return;
+
+    static const QRegularExpression derivedRe("^[A-Za-z0-9_.]+-[0-9a-f]{2}$");
+    store.mutate([](QList<Chat> &list) {
+        for (Chat &c : list) {
+            if (c.claudeSessionID.isEmpty() || !derivedRe.match(c.title).hasMatch())
+                continue;
+
+            const QString first = TranscriptIndex::previewForSession(c.claudeSessionID);
+
+            if (!first.isEmpty())
+                c.title = first.left(40);
+
+            const QString last = TranscriptIndex::lastMessagePreview(c.claudeSessionID);
+
+            if (!last.isEmpty())
+                c.preview = last;
+        }
+    });
+    s.setValue("general/titles_fixed", true);
 }
 
 // The running-embedded set is persisted on every launch/termination, not
@@ -205,6 +236,8 @@ ChatView *MainWindow::viewFor(const QString &chatID) {
             [this, chatID] { launchChat(chatID); });
     connect(view->resume(), &ResumePane::raiseRequested, this,
             [this](int pid) { raiseExternal(pid); });
+    connect(view->resume(), &ResumePane::pullRequested, this,
+            [this, chatID] { pullInLive(chatID); });
     refreshView(chatID);
 
     return view;
@@ -350,9 +383,10 @@ void MainWindow::onChildClaude(const QString &chatID, int claudePID) {
         changed = true;
     }
 
-    if (c.title.isEmpty() && !live->name.isEmpty()) {
-        c.title = live->name;
-        changed = true;
+    if (c.title.isEmpty()) {
+        const QString first = TranscriptIndex::previewForSession(c.claudeSessionID);
+        c.title = !first.isEmpty() ? first.left(40) : live->name;
+        changed = !c.title.isEmpty();
     }
 
     if (c.preview.isEmpty()) {
@@ -401,6 +435,7 @@ void MainWindow::onChildTmux(const QString &chatID, const QStringList &cmdline) 
 
 void MainWindow::onRegistryUpdated() {
     bool unreadChanged = false;
+    QHash<QString, QString> freshPreviews; // chatID → latest message
 
     for (const Chat &c : store.chats()) {
         if (c.claudeSessionID.isEmpty())
@@ -410,14 +445,29 @@ void MainWindow::onRegistryUpdated() {
         const QString now = live ? live->status : QString();
         const QString before = lastStatus.value(c.id);
 
-        // busy → idle while not focused = claude finished something for you.
-        if (before == "busy" && now == "idle" && c.id != currentID) {
-            unread.insert(c.id);
-            unreadChanged = true;
+        if (before == "busy" && now == "idle") {
+            // claude finished a turn — refresh the "last message" line...
+            const QString last = TranscriptIndex::lastMessagePreview(c.claudeSessionID);
+
+            if (!last.isEmpty() && last != c.preview)
+                freshPreviews.insert(c.id, last);
+
+            // ...and mark unread if the user wasn't looking.
+            if (c.id != currentID) {
+                unread.insert(c.id);
+                unreadChanged = true;
+            }
         }
 
         lastStatus.insert(c.id, now);
     }
+
+    if (!freshPreviews.isEmpty())
+        store.mutate([&freshPreviews](QList<Chat> &list) {
+            for (Chat &c : list)
+                if (freshPreviews.contains(c.id))
+                    c.preview = freshPreviews.value(c.id);
+        });
 
     if (unreadChanged)
         model->setUnread(unread);
@@ -463,23 +513,34 @@ void MainWindow::autoAdoptNew() {
     if (fresh.isEmpty())
         return;
 
-    store.mutate([&fresh](QList<Chat> &list) {
+    store.mutate([this, &fresh](QList<Chat> &list) {
         for (const LiveEntry &e : fresh) {
             const bool tracked = std::any_of(list.cbegin(), list.cend(),
                 [&e](const Chat &c) { return c.claudeSessionID == e.sessionID; });
 
-            if (tracked)
-                continue;
-
-            Chat c = Chat::create("claude");
-            c.claudeSessionID = e.sessionID;
-            c.cwd = e.cwd;
-            c.title = e.name;
-            c.preview = TranscriptIndex::previewForSession(e.sessionID);
-            c.lastActiveAt = e.updatedAt;
-            list.append(c);
+            if (!tracked)
+                list.append(chatFromLive(e));
         }
     });
+}
+
+// Chat identity: title = the session's first user message (claude's own
+// registry names like "pavel-f4" are machine-derived), preview = the most
+// recent message (WhatsApp-style "last message" line).
+Chat MainWindow::chatFromLive(const LiveEntry &e) {
+    Chat c = Chat::create("claude");
+    c.claudeSessionID = e.sessionID;
+    c.cwd = e.cwd;
+    c.lastActiveAt = e.updatedAt;
+    const QString first = TranscriptIndex::previewForSession(e.sessionID);
+    const bool derived = e.nameSource == "derived" || e.name.isEmpty();
+    c.title = (derived && !first.isEmpty()) ? first.left(40) : e.name;
+    c.preview = TranscriptIndex::lastMessagePreview(e.sessionID);
+
+    if (c.preview.isEmpty())
+        c.preview = first;
+
+    return c;
 }
 
 FloatWindow *MainWindow::floatOf(ChatView *view) const {
@@ -612,8 +673,9 @@ void MainWindow::showContextMenu(const QPoint &pos) {
 
     if (live && !panes.contains(id)) {
         const int pid = live->pid;
-        menu.addAction(tr("Raise external window"), this, [this, pid] { raiseExternal(pid); });
-        menu.addAction(tr("Pull into Rezoom (live)"), this, [this, id] { pullInLive(id); });
+        menu.addAction(tr("Go to its window"), this, [this, pid] { raiseExternal(pid); });
+        // \xe2\xa4\xb5 = UTF-8 for "⤵"
+        menu.addAction(tr("\xe2\xa4\xb5 Beam it in"), this, [this, id] { pullInLive(id); });
     }
 
     if (c->kind == "ssh")

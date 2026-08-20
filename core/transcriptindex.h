@@ -22,5 +22,9 @@ QList<TranscriptInfo> scanAll();
 QString pathForSession(const QString &sessionID);
 
 QString previewForSession(const QString &sessionID);
+
+// Most recent message text (user or assistant) from the transcript tail —
+// the WhatsApp-style "last message" line.
+QString lastMessagePreview(const QString &sessionID);
 TranscriptInfo readInfo(const QString &path);
 }

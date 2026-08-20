@@ -15,6 +15,7 @@ struct LiveEntry {
     QString status; // "idle" | "busy" | "shell"
     QString kind;   // "interactive" for real CLI sessions
     QString name;
+    QString nameSource; // "derived" = machine-made, prefer transcript titles
     QString cwd;
     qint64 updatedAt = 0;
 };

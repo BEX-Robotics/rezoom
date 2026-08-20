@@ -82,11 +82,17 @@ QWidget *AdoptDialog::makeRunningTab() {
         Chat c = Chat::create("claude");
         c.claudeSessionID = e.sessionID;
         c.cwd = e.cwd;
-        c.title = e.name;
-        c.preview = TranscriptIndex::previewForSession(e.sessionID);
         c.lastActiveAt = e.updatedAt;
+        const QString first = TranscriptIndex::previewForSession(e.sessionID);
+        const bool derived = e.nameSource == "derived" || e.name.isEmpty();
+        c.title = (derived && !first.isEmpty()) ? first.left(40) : e.name;
+        c.preview = TranscriptIndex::lastMessagePreview(e.sessionID);
+
+        if (c.preview.isEmpty())
+            c.preview = first;
+
         auto *item = new QTreeWidgetItem(
-            tree, {e.name, e.status, e.cwd, e.sessionID.left(8)});
+            tree, {c.title, e.status, e.cwd, e.sessionID.left(8)});
         attachChat(item, c);
     }
 
