@@ -167,7 +167,10 @@ void SessionStore::touch(const QString &id) {
 // One-time seed from claude-freeze's snapshot:
 // cwd \t sid \t exact|guessed \t "mm-dd HH:MM | preview"
 void SessionStore::importLegacySnapshot(QList<Chat> &list) {
-    QFile f(QDir::homePath() + "/.claude/session-snapshot.tsv");
+    const QString claude = qEnvironmentVariable("REZOOM_CLAUDE_DIR").isEmpty()
+        ? QDir::homePath() + "/.claude"
+        : qEnvironmentVariable("REZOOM_CLAUDE_DIR");
+    QFile f(claude + "/session-snapshot.tsv");
 
     if (!f.open(QIODevice::ReadOnly | QIODevice::Text))
         return;

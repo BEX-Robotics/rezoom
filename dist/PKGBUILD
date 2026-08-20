@@ -1,6 +1,6 @@
 # Maintainer: Pavel <bugpwr@gmail.com>
 pkgname=rezoom
-pkgver=0.1.0
+pkgver=1.0.0
 pkgrel=1
 pkgdesc="WhatsApp-style organizer for Claude Code sessions and terminals"
 arch=(x86_64)

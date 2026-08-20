@@ -9,7 +9,9 @@
 #include "transcriptindex.h"
 
 static QString projectsDir() {
-    return QDir::homePath() + "/.claude/projects";
+    const QString override = qEnvironmentVariable("REZOOM_CLAUDE_DIR");
+
+    return (override.isEmpty() ? QDir::homePath() + "/.claude" : override) + "/projects";
 }
 
 // Minimal unescape of a JSON string fragment, for display only.

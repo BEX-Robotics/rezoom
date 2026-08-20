@@ -9,8 +9,15 @@
 
 #include "liveregistry.h"
 
+// $REZOOM_CLAUDE_DIR overrides ~/.claude for tests and staged demos.
+static QString claudeDir() {
+    const QString override = qEnvironmentVariable("REZOOM_CLAUDE_DIR");
+
+    return override.isEmpty() ? QDir::homePath() + "/.claude" : override;
+}
+
 static QString sessionsDir() {
-    return QDir::homePath() + "/.claude/sessions";
+    return claudeDir() + "/sessions";
 }
 
 LiveRegistry::LiveRegistry(QObject *parent) : QObject(parent) {
