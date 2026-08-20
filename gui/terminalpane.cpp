@@ -44,6 +44,10 @@ TerminalPane::TerminalPane(const QString &chatID, const QString &profile, QWidge
     if (!profile.isEmpty() && term->availableProfiles().contains(profile))
         term->setCurrentProfile(profile);
 
+    // Konsole keeps its caption on claude's current activity — live title.
+    connect(part, &KParts::ReadOnlyPart::setWindowCaption, this,
+            [this](const QString &caption) { emit captionChanged(id, caption.trimmed()); });
+
     // Konsole destroys the part when the shell exits (e.g. Ctrl-D).
     connect(part, &QObject::destroyed, this, [this] {
         part = 0;

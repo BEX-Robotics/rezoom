@@ -90,6 +90,15 @@ private:
     void prevChat();
     void focusSearch();
     void openShortcuts();
+    struct RegistryDeltas {
+        QHash<QString, QString> titles;
+        QHash<QString, QString> previews;
+        QHash<QString, QString> busyTails;
+        bool unreadChanged = false;
+    };
+
+    void scanChatDelta(const Chat &c, RegistryDeltas &d);
+    void wirePane(TerminalPane *pane);
     void updateAttention(); // window title + taskbar badge
     void updateArchivedButton();
     void autoAdoptNew();
@@ -117,7 +126,9 @@ private:
     QHash<QString, TerminalPane *> panes;
     QList<FloatWindow *> floats;
     QSet<QString> unread;
-    QHash<QString, QString> lastStatus; // chatID → last seen live status
+    QHash<QString, QString> lastStatus;   // chatID → last seen live status
+    QHash<QString, QString> liveTitles;   // chatID → konsole caption (display only)
+    QHash<QString, QString> livePreviews; // chatID → busy transcript tail (display only)
     QString currentID;
     bool shuttingDown = false;
     int floatCounter = 0;

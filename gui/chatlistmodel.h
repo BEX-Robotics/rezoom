@@ -1,5 +1,6 @@
 #pragma once
 #include <QAbstractListModel>
+#include <QHash>
 #include <QSet>
 
 struct Chat;
@@ -34,6 +35,8 @@ public:
     void setShowArchived(bool on);
     void setUnread(const QSet<QString> &ids);
     void setEmbedded(const QSet<QString> &ids);
+    void setLiveTitles(const QHash<QString, QString> &titles);
+    void setLivePreviews(const QHash<QString, QString> &previews);
     QString idAt(const QModelIndex &index) const;
     QModelIndex indexOf(const QString &id) const;
     int archivedCount() const;
@@ -65,5 +68,7 @@ private:
     QString filter;
     QSet<QString> unreadIDs;
     QSet<QString> embeddedIDs;
+    QHash<QString, QString> liveTitles;   // display-only, e.g. konsole caption
+    QHash<QString, QString> livePreviews; // display-only, busy-session tail
     bool showArchived = false;
 };

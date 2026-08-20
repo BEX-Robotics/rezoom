@@ -55,6 +55,7 @@ QJsonObject Chat::toJson() const {
     o["tmuxSession"] = tmuxSession;
     o["preview"] = preview;
     o["tint"] = tint;
+    o["titleLocked"] = titleLocked;
     o["archived"] = archived;
     o["createdAt"] = createdAt;
     o["lastActiveAt"] = lastActiveAt;
@@ -76,6 +77,7 @@ Chat Chat::fromJson(const QJsonObject &o) {
     c.tmuxSession = o["tmuxSession"].toString();
     c.preview = o["preview"].toString();
     c.tint = o["tint"].toString();
+    c.titleLocked = o["titleLocked"].toBool();
     c.archived = o["archived"].toBool();
     c.createdAt = static_cast<qint64>(o["createdAt"].toDouble());
     c.lastActiveAt = static_cast<qint64>(o["lastActiveAt"].toDouble());

@@ -17,6 +17,7 @@ struct Chat {
     QString tmuxSession;      // tmux session name
     QString preview;          // first-user-message snippet (WhatsApp-style)
     QString tint;             // konsole profile name (tint-red, ...) → avatar color
+    bool titleLocked = false; // user renamed it — auto-titling keeps off
     bool archived = false;
     qint64 createdAt = 0;     // ms since epoch
     qint64 lastActiveAt = 0;

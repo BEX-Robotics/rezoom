@@ -530,6 +530,26 @@ void MainWindow::onChatSelected() {
         stack->setCurrentWidget(view);
 }
 
+void MainWindow::wirePane(TerminalPane *pane) {
+    connect(pane, &TerminalPane::terminated, this, &MainWindow::onPaneTerminated);
+    connect(pane, &TerminalPane::childClaude, this, &MainWindow::onChildClaude);
+    connect(pane, &TerminalPane::childCodex, this, &MainWindow::onChildCodex);
+    connect(pane, &TerminalPane::childSsh, this, &MainWindow::onChildSsh);
+    connect(pane, &TerminalPane::childTmux, this, &MainWindow::onChildTmux);
+    connect(pane, &TerminalPane::captionChanged, this,
+            [this](const QString &id, const QString &caption) {
+                if (liveTitles.value(id) == caption)
+                    return;
+
+                if (caption.isEmpty())
+                    liveTitles.remove(id);
+                else
+                    liveTitles.insert(id, caption);
+
+                model->setLiveTitles(liveTitles);
+            });
+}
+
 void MainWindow::launchChat(const QString &chatID, const QString &commandOverride) {
     const Chat *c = store.find(chatID);
 
@@ -559,12 +579,7 @@ void MainWindow::launchChat(const QString &chatID, const QString &commandOverrid
         return;
     }
 
-    connect(pane, &TerminalPane::terminated, this, &MainWindow::onPaneTerminated);
-    connect(pane, &TerminalPane::childClaude, this, &MainWindow::onChildClaude);
-    connect(pane, &TerminalPane::childCodex, this, &MainWindow::onChildCodex);
-    connect(pane, &TerminalPane::childSsh, this, &MainWindow::onChildSsh);
-    connect(pane, &TerminalPane::childTmux, this, &MainWindow::onChildTmux);
-
+    wirePane(pane);
     panes.insert(chatID, pane);
     rememberRunning();
     model->setEmbedded(QSet<QString>(panes.keyBegin(), panes.keyEnd()));
@@ -591,6 +606,9 @@ void MainWindow::onPaneTerminated(const QString &chatID) {
     TerminalPane *pane = panes.take(chatID);
     rememberRunning();
     model->setEmbedded(QSet<QString>(panes.keyBegin(), panes.keyEnd()));
+
+    if (liveTitles.remove(chatID))
+        model->setLiveTitles(liveTitles);
     ChatView *view = views.value(chatID);
 
     if (view)
@@ -704,40 +722,66 @@ void MainWindow::onChildTmux(const QString &chatID, const QStringList &cmdline) 
     store.update(c);
 }
 
-void MainWindow::onRegistryUpdated() {
-    bool unreadChanged = false;
-    QHash<QString, QString> freshPreviews; // chatID → latest message
+// One chat's registry delta: follow claude's own session renames
+// (titleLocked chats excepted), stream the transcript tail while busy, and
+// persist the turn result + unread mark on busy→idle.
+void MainWindow::scanChatDelta(const Chat &c, RegistryDeltas &d) {
+    const auto live = registry.entryForSession(c.claudeSessionID);
+    const QString now = live ? live->status : QString();
+    const QString before = lastStatus.value(c.id);
 
-    for (const Chat &c : store.chats()) {
-        if (c.claudeSessionID.isEmpty())
-            continue;
+    if (live && !c.titleLocked && live->nameSource != "derived"
+        && !live->name.isEmpty() && c.title != live->name)
+        d.titles.insert(c.id, live->name);
 
-        const auto live = registry.entryForSession(c.claudeSessionID);
-        const QString now = live ? live->status : QString();
-        const QString before = lastStatus.value(c.id);
+    if (now == "busy") {
+        const QString tail = TranscriptIndex::lastMessagePreview(c.claudeSessionID);
 
-        if (before == "busy" && now == "idle") {
-            // claude finished a turn — refresh the "last message" line...
-            const QString last = TranscriptIndex::lastMessagePreview(c.claudeSessionID);
-
-            if (!last.isEmpty() && last != c.preview)
-                freshPreviews.insert(c.id, last);
-
-            // ...and mark unread if the user wasn't looking.
-            if (c.id != currentID) {
-                unread.insert(c.id);
-                unreadChanged = true;
-            }
-        }
-
-        lastStatus.insert(c.id, now);
+        if (!tail.isEmpty())
+            d.busyTails.insert(c.id, tail);
     }
 
-    if (!freshPreviews.isEmpty())
-        store.mutate([&freshPreviews](QList<Chat> &list) {
-            for (Chat &c : list)
+    if (before == "busy" && now == "idle") {
+        const QString last = TranscriptIndex::lastMessagePreview(c.claudeSessionID);
+
+        if (!last.isEmpty() && last != c.preview)
+            d.previews.insert(c.id, last);
+
+        if (c.id != currentID) {
+            unread.insert(c.id);
+            d.unreadChanged = true;
+        }
+    }
+
+    lastStatus.insert(c.id, now);
+}
+
+void MainWindow::onRegistryUpdated() {
+    RegistryDeltas d = {};
+
+    for (const Chat &c : store.chats())
+        if (!c.claudeSessionID.isEmpty())
+            scanChatDelta(c, d);
+
+    const bool unreadChanged = d.unreadChanged;
+    const QHash<QString, QString> freshPreviews = d.previews;
+    const QHash<QString, QString> freshTitles = d.titles;
+    const QHash<QString, QString> busyTails = d.busyTails;
+
+    if (busyTails != livePreviews) {
+        livePreviews = busyTails;
+        model->setLivePreviews(livePreviews);
+    }
+
+    if (!freshPreviews.isEmpty() || !freshTitles.isEmpty())
+        store.mutate([&freshPreviews, &freshTitles](QList<Chat> &list) {
+            for (Chat &c : list) {
                 if (freshPreviews.contains(c.id))
                     c.preview = freshPreviews.value(c.id);
+
+                if (freshTitles.contains(c.id))
+                    c.title = freshTitles.value(c.id);
+            }
         });
 
     if (unreadChanged)
@@ -1038,6 +1082,7 @@ void MainWindow::renameChat(const QString &chatID) {
 
     Chat c = *cp;
     c.title = title;
+    c.titleLocked = !title.trimmed().isEmpty(); // empty rename = back to auto
     store.update(c);
 
     ChatView *view = views.value(chatID);

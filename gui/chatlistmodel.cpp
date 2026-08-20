@@ -67,6 +67,19 @@ ChatListModel::Row ChatListModel::makeRow(const Chat &c, const QString &status) 
     row.kind = c.kind;
     row.unread = unreadIDs.contains(c.id);
 
+    // Live display overrides: konsole caption as title, busy-tail as preview.
+    const QString lt = liveTitles.value(c.id);
+
+    if (!lt.isEmpty()) {
+        row.title = lt;
+        row.tooltip = lt;
+    }
+
+    const QString lp = livePreviews.value(c.id);
+
+    if (!lp.isEmpty())
+        row.preview = lp;
+
     // A limit-freeze reported by the Notification hook overrides presence.
     if (const auto fr = notifications->freezeFor(c.claudeSessionID)) {
         row.status = QStringLiteral("frozen");
@@ -170,6 +183,16 @@ void ChatListModel::setFilter(const QString &text) {
 
 void ChatListModel::setShowArchived(bool on) {
     showArchived = on;
+    rebuild();
+}
+
+void ChatListModel::setLiveTitles(const QHash<QString, QString> &titles) {
+    liveTitles = titles;
+    rebuild();
+}
+
+void ChatListModel::setLivePreviews(const QHash<QString, QString> &previews) {
+    livePreviews = previews;
     rebuild();
 }
 

@@ -30,6 +30,7 @@ signals:
     void terminated(const QString &chatID);
     void childClaude(const QString &chatID, int claudePID);
     void childCodex(const QString &chatID, int codexPID);
+    void captionChanged(const QString &chatID, const QString &caption);
     void childSsh(const QString &chatID, const QStringList &cmdline);
     void childTmux(const QString &chatID, const QStringList &cmdline);
 
