@@ -18,6 +18,10 @@
 #include <QProcessEnvironment>
 #include <QRegularExpression>
 #include <QSaveFile>
+#ifdef REZOOM_HAVE_DBUS
+#include <QDBusConnection>
+#include <QDBusMessage>
+#endif
 #include <QPushButton>
 #include <QSettings>
 #include <QSplitter>
@@ -87,6 +91,7 @@ MainWindow::MainWindow() {
 
     buildShortcuts();
     connect(&registry, &LiveRegistry::updated, this, &MainWindow::onRegistryUpdated);
+    connect(&notifications, &NotificationWatcher::updated, this, &MainWindow::updateAttention);
     onRegistryUpdated();
     restoreUiState();
 
@@ -493,8 +498,10 @@ void MainWindow::onChatSelected() {
 
     currentID = id;
 
-    if (unread.remove(id))
+    if (unread.remove(id)) {
         model->setUnread(unread);
+        updateAttention();
+    }
 
     ChatView *view = viewFor(id);
     refreshView(id);
@@ -735,6 +742,62 @@ void MainWindow::onRegistryUpdated() {
     }
 
     autoAdoptNew();
+    updateAttention();
+}
+
+// "(2) Rezoom — 3 working · 5 waiting · 1 frozen": the parenthesized count
+// is what needs the user (unread + frozen) and doubles as the taskbar badge
+// (Unity LauncherEntry — Plasma renders it on the launcher icon).
+void MainWindow::updateAttention() {
+    int working = 0;
+    int waiting = 0;
+
+    for (const Chat &c : store.chats()) {
+        const auto live = registry.entryForSession(c.claudeSessionID);
+
+        if (!live)
+            continue;
+
+        if (live->status == "busy")
+            ++working;
+        else if (live->status == "idle")
+            ++waiting;
+    }
+
+    const int frozen = notifications.frozenSessions().size();
+    const int needsYou = unread.size() + frozen;
+    QString title;
+
+    if (needsYou)
+        title += QStringLiteral("(%1) ").arg(needsYou);
+
+    title += QStringLiteral("Rezoom");
+    QStringList parts;
+
+    if (working)
+        parts << tr("%n working", 0, working);
+
+    if (waiting)
+        parts << tr("%n waiting", 0, waiting);
+
+    if (frozen)
+        parts << tr("%n frozen", 0, frozen);
+
+    if (!parts.isEmpty())
+        // \xe2\x80\x94 = UTF-8 for "—" (em dash), \xc2\xb7 = "·" (middle dot)
+        title += QString::fromUtf8(" \xe2\x80\x94 ") + parts.join(QString::fromUtf8(" \xc2\xb7 "));
+
+    setWindowTitle(title);
+
+#ifdef REZOOM_HAVE_DBUS
+    QDBusMessage badge = QDBusMessage::createSignal(
+        QStringLiteral("/rezoom"), QStringLiteral("com.canonical.Unity.LauncherEntry"),
+        QStringLiteral("Update"));
+    badge << QStringLiteral("application://rezoom.desktop")
+          << QVariantMap{{QStringLiteral("count"), qint64(needsYou)},
+                         {QStringLiteral("count-visible"), needsYou > 0}};
+    QDBusConnection::sessionBus().send(badge);
+#endif
 }
 
 // The WhatsApp model: a new interactive claude session anywhere on the

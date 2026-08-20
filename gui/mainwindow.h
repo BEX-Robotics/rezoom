@@ -90,6 +90,7 @@ private:
     void prevChat();
     void focusSearch();
     void openShortcuts();
+    void updateAttention(); // window title + taskbar badge
     void updateArchivedButton();
     void autoAdoptNew();
     Chat chatFromLive(const LiveEntry &e);
