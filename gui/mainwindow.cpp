@@ -90,6 +90,19 @@ MainWindow::MainWindow() {
     setCentralWidget(splitter);
 
     buildShortcuts();
+
+    // Model refreshes are full resets, which clear the view's selection —
+    // quietly re-pin the current chat after every rebuild (no scroll jump).
+    connect(model, &QAbstractItemModel::modelReset, this, [this] {
+        if (currentID.isEmpty())
+            return;
+
+        const QModelIndex idx = model->indexOf(currentID);
+
+        if (idx.isValid())
+            list->setCurrentIndex(idx);
+    });
+
     connect(&registry, &LiveRegistry::updated, this, &MainWindow::onRegistryUpdated);
     connect(&notifications, &NotificationWatcher::updated, this, &MainWindow::updateAttention);
     onRegistryUpdated();

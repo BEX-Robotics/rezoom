@@ -17,7 +17,6 @@ int main(int argc, char **argv) {
 
     QApplication app(argc, argv);
     QApplication::setApplicationName(QStringLiteral("rezoom"));
-    QApplication::setApplicationDisplayName(QStringLiteral("Rezoom"));
     QApplication::setDesktopFileName(QStringLiteral("rezoom"));
     QApplication::setWindowIcon(QIcon(QStringLiteral(":/rezoom.svg")));
 
