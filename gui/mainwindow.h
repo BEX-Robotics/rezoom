@@ -45,6 +45,13 @@ private slots:
     void reclaimWindow(FloatWindow *w);
 
 private:
+    struct RegistryDeltas {
+        QHash<QString, QString> titles;
+        QHash<QString, QString> previews;
+        QHash<QString, QString> busyTails;
+        bool unreadChanged = false;
+    };
+
     QWidget *buildLeftPanel();
     QWidget *buildRightPanel();
     void buildNewMenu(QPushButton *button);
@@ -93,13 +100,6 @@ private:
     void prevChat();
     void focusSearch();
     void openShortcuts();
-    struct RegistryDeltas {
-        QHash<QString, QString> titles;
-        QHash<QString, QString> previews;
-        QHash<QString, QString> busyTails;
-        bool unreadChanged = false;
-    };
-
     void scanChatDelta(const Chat &c, RegistryDeltas &d);
     void wirePane(TerminalPane *pane);
     void updateAttention(); // window title + taskbar badge
