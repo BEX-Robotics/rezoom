@@ -281,7 +281,10 @@ QWidget *MainWindow::buildLeftPanel() {
     auto *settingsBtn = new QPushButton(tr("\xe2\x9a\x99"), panel); // \xe2\x9a\x99 = UTF-8 for "⚙" (gear)
     settingsBtn->setToolTip(tr("Settings \xe2\x80\x94 Ctrl+Shift+P")); // "—" (em dash)
     settingsBtn->setFlat(true);
-    settingsBtn->setFixedWidth(32);
+    QFont gearFont = settingsBtn->font();
+    gearFont.setPointSizeF(gearFont.pointSizeF() * 1.6);
+    settingsBtn->setFont(gearFont);
+    settingsBtn->setFixedWidth(40);
     connect(settingsBtn, &QPushButton::clicked, this, &MainWindow::openSettings);
     bottom->addWidget(settingsBtn);
     layout->addLayout(bottom);
