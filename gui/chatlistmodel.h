@@ -33,6 +33,7 @@ public:
     void setFilter(const QString &text);
     void setShowArchived(bool on);
     void setUnread(const QSet<QString> &ids);
+    void setEmbedded(const QSet<QString> &ids);
     QString idAt(const QModelIndex &index) const;
     QModelIndex indexOf(const QString &id) const;
     int archivedCount() const;
@@ -63,5 +64,6 @@ private:
     QList<Row> rows;
     QString filter;
     QSet<QString> unreadIDs;
+    QSet<QString> embeddedIDs;
     bool showArchived = false;
 };

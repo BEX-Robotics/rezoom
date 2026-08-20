@@ -37,6 +37,9 @@ static QString statusPreview(const QString &status, const QString &fallback) {
     if (status == "shell")
         return QStringLiteral("at shell");
 
+    if (status == "live")
+        return fallback.isEmpty() ? QStringLiteral("session open") : fallback;
+
     return fallback;
 }
 
@@ -106,8 +109,17 @@ void ChatListModel::rebuild() {
         Sortable s = {};
         const auto live = registry->entryForSession(c.claudeSessionID);
         s.running = live.has_value();
-        s.lastActive = qMax(s.running ? live->updatedAt : c.lastActiveAt, c.lastActiveAt);
-        s.row = makeRow(c, s.running ? live->status : QStringLiteral("off"));
+
+        // Codex & friends have no live registry — an open pane means "live".
+        QString status = s.running ? live->status : QStringLiteral("off");
+
+        if (!s.running && embeddedIDs.contains(c.id)) {
+            s.running = true;
+            status = QStringLiteral("live");
+        }
+
+        s.lastActive = qMax(live ? live->updatedAt : c.lastActiveAt, c.lastActiveAt);
+        s.row = makeRow(c, status);
         s.row.timeText = relativeTime(s.lastActive);
         tmp.append(s);
     }
@@ -158,6 +170,11 @@ void ChatListModel::setFilter(const QString &text) {
 
 void ChatListModel::setShowArchived(bool on) {
     showArchived = on;
+    rebuild();
+}
+
+void ChatListModel::setEmbedded(const QSet<QString> &ids) {
+    embeddedIDs = ids;
     rebuild();
 }
 

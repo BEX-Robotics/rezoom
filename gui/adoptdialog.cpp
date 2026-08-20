@@ -1,3 +1,5 @@
+#include <algorithm>
+
 #include <QDateTime>
 #include <QDialogButtonBox>
 #include <QHeaderView>
@@ -8,6 +10,7 @@
 #include <QTreeWidget>
 #include <QVBoxLayout>
 
+#include "core/codexindex.h"
 #include "core/liveregistry.h"
 #include "core/processscout.h"
 #include "core/sessionstore.h"
@@ -107,20 +110,26 @@ QWidget *AdoptDialog::makeHistoryTab() {
     tree->setRootIsDecorated(false);
     tree->setSelectionMode(QAbstractItemView::ExtendedSelection);
 
-    const QList<TranscriptInfo> all = TranscriptIndex::scanAll();
+    QList<TranscriptInfo> all = TranscriptIndex::scanAll();
+    all.append(CodexIndex::scanAll());
+    std::sort(all.begin(), all.end(), [](const TranscriptInfo &x, const TranscriptInfo &y) {
+        return x.mtimeMs > y.mtimeMs;
+    });
 
     for (const TranscriptInfo &t : all) {
         if (tracked(t.sessionID) || t.preview.isEmpty())
             continue;
 
-        Chat c = Chat::create("claude");
+        const bool isCodex = t.path.contains("/.codex/");
+        Chat c = Chat::create(isCodex ? "codex" : "claude");
         c.claudeSessionID = t.sessionID;
         c.cwd = t.cwd;
         c.preview = t.preview;
         c.title = t.preview.left(40);
         c.lastActiveAt = t.mtimeMs;
         const QString when = QDateTime::fromMSecsSinceEpoch(t.mtimeMs).toString("yyyy-MM-dd HH:mm");
-        auto *item = new QTreeWidgetItem(tree, {when, t.cwd, t.preview.left(90)});
+        const QString what = (isCodex ? QStringLiteral("[codex] ") : QString()) + t.preview.left(90);
+        auto *item = new QTreeWidgetItem(tree, {when, t.cwd, what});
         attachChat(item, c);
     }
 

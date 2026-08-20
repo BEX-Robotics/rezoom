@@ -29,6 +29,7 @@ public:
 signals:
     void terminated(const QString &chatID);
     void childClaude(const QString &chatID, int claudePID);
+    void childCodex(const QString &chatID, int codexPID);
     void childSsh(const QString &chatID, const QStringList &cmdline);
     void childTmux(const QString &chatID, const QStringList &cmdline);
 
@@ -48,6 +49,7 @@ private:
     QTimer timer;
     int shell = 0;
     int lastClaudePID = 0;
+    int lastCodexPID = 0;
     bool reportedSsh = false;
     bool reportedTmux = false;
     bool terminatedEmitted = false;

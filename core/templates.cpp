@@ -11,6 +11,7 @@ static QSettings confFile() {
 
 Templates::Templates() {
     seedDefaults();
+    seedLater();
 }
 
 void Templates::seedDefaults() {
@@ -29,6 +30,16 @@ void Templates::seedDefaults() {
     s.setValue("shell", "");
     s.endGroup();
     s.setValue("general/seeded", true);
+}
+
+// Additive re-seed for templates introduced after first run.
+void Templates::seedLater() {
+    QSettings s = confFile();
+
+    if (!s.contains("templates/codex-resume")) {
+        s.setValue("templates/codex-new", "codex");
+        s.setValue("templates/codex-resume", "codex resume {session_id}");
+    }
 }
 
 QList<Templates::Entry> Templates::all() const {
@@ -64,6 +75,9 @@ void Templates::replaceAll(const QList<Entry> &entries) {
 QString Templates::defaultTemplateFor(const Chat &c) const {
     if (c.kind == "claude")
         return c.claudeSessionID.isEmpty() ? "claude-new" : "claude-resume";
+
+    if (c.kind == "codex")
+        return c.claudeSessionID.isEmpty() ? "codex-new" : "codex-resume";
 
     if (c.kind == "ssh") {
         if (!c.claudeSessionID.isEmpty() && !c.host.isEmpty())

@@ -17,6 +17,7 @@
 #include <QProcess>
 #include <QProcessEnvironment>
 #include <QRegularExpression>
+#include <QSaveFile>
 #include <QPushButton>
 #include <QSettings>
 #include <QSplitter>
@@ -24,6 +25,7 @@
 #include <QStackedWidget>
 #include <QVBoxLayout>
 
+#include "core/codexindex.h"
 #include "core/externalterminal.h"
 #include "core/processscout.h"
 #include "core/transcriptindex.h"
@@ -137,9 +139,67 @@ void MainWindow::rememberRunning() {
     s.setValue("ui/runningChats", ids);
 }
 
+// Pre-accept claude's "trust this folder?" for the dirs we're about to
+// auto-resume — the claude-restore trick. Only when NO claude is running
+// (live sessions rewrite ~/.claude.json), never under test overrides.
+void MainWindow::preTrustCwds(const QStringList &cwds) {
+    if (cwds.isEmpty() || !qEnvironmentVariable("REZOOM_CLAUDE_DIR").isEmpty())
+        return;
+
+    if (!registry.bySessionID().isEmpty())
+        return; // running claudes own that file right now
+
+    const QString path = QDir::homePath() + "/.claude.json";
+    QFile f(path);
+
+    if (!f.open(QIODevice::ReadOnly))
+        return;
+
+    QJsonObject root = QJsonDocument::fromJson(f.readAll()).object();
+    f.close();
+
+    if (root.isEmpty())
+        return; // parse failure — do not touch the file
+
+    QJsonObject projects = root["projects"].toObject();
+    bool changed = false;
+
+    for (const QString &cwd : cwds) {
+        QJsonObject p = projects[cwd].toObject();
+
+        if (p["hasTrustDialogAccepted"].toBool())
+            continue;
+
+        p["hasTrustDialogAccepted"] = true;
+        projects[cwd] = p;
+        changed = true;
+    }
+
+    if (!changed)
+        return;
+
+    root["projects"] = projects;
+    QFile::remove(path + ".bak-rezoom");
+    QFile::copy(path, path + ".bak-rezoom");
+    QSaveFile out(path);
+
+    if (!out.open(QIODevice::WriteOnly))
+        return;
+
+    out.write(QJsonDocument(root).toJson(QJsonDocument::Compact));
+    out.commit();
+}
+
 void MainWindow::resumePrevious() {
     QSettings s(QStringLiteral("rezoom"), QStringLiteral("rezoom"));
     const QStringList ids = s.value("ui/runningChats").toStringList();
+    QStringList cwds;
+
+    for (const QString &id : ids)
+        if (const Chat *c = store.find(id); c && c->kind == "claude" && c->host.isEmpty())
+            cwds << c->cwd;
+
+    preTrustCwds(cwds);
     int slot = 0;
 
     for (const QString &id : ids) {
@@ -476,11 +536,13 @@ void MainWindow::launchChat(const QString &chatID, const QString &commandOverrid
 
     connect(pane, &TerminalPane::terminated, this, &MainWindow::onPaneTerminated);
     connect(pane, &TerminalPane::childClaude, this, &MainWindow::onChildClaude);
+    connect(pane, &TerminalPane::childCodex, this, &MainWindow::onChildCodex);
     connect(pane, &TerminalPane::childSsh, this, &MainWindow::onChildSsh);
     connect(pane, &TerminalPane::childTmux, this, &MainWindow::onChildTmux);
 
     panes.insert(chatID, pane);
     rememberRunning();
+    model->setEmbedded(QSet<QString>(panes.keyBegin(), panes.keyEnd()));
     view->attachPane(pane);
 
     const QString cwd = (!c->cwd.isEmpty() && c->host.isEmpty()) ? c->cwd : QDir::homePath();
@@ -501,6 +563,7 @@ void MainWindow::onPaneTerminated(const QString &chatID) {
 
     TerminalPane *pane = panes.take(chatID);
     rememberRunning();
+    model->setEmbedded(QSet<QString>(panes.keyBegin(), panes.keyEnd()));
     ChatView *view = views.value(chatID);
 
     if (view)
@@ -550,6 +613,33 @@ void MainWindow::onChildClaude(const QString &chatID, int claudePID) {
 
     if (changed)
         store.update(c);
+}
+
+// Codex has no live registry like ~/.claude/sessions — bind the process to
+// the freshest rollout file matching the chat's cwd instead.
+void MainWindow::onChildCodex(const QString &chatID, int codexPID) {
+    Q_UNUSED(codexPID);
+    const Chat *cp = store.find(chatID);
+
+    if (!cp)
+        return;
+
+    const TranscriptInfo t = CodexIndex::newestSession(cp->cwd);
+
+    if (t.sessionID.isEmpty() || cp->claudeSessionID == t.sessionID)
+        return;
+
+    Chat c = *cp;
+    c.kind = "codex";
+    c.claudeSessionID = t.sessionID;
+
+    if (c.title.isEmpty() && !t.preview.isEmpty())
+        c.title = t.preview.left(40);
+
+    if (!t.preview.isEmpty())
+        c.preview = t.preview;
+
+    store.update(c);
 }
 
 void MainWindow::onChildSsh(const QString &chatID, const QStringList &cmdline) {
@@ -957,8 +1047,9 @@ void MainWindow::pullInLive(const QString &chatID) {
         return;
 
     if (QStandardPaths::findExecutable(QStringLiteral("reptyr")).isEmpty()) {
-        offerKillResume(chatID, live->pid,
-                        tr("Live pull needs reptyr (sudo apt install reptyr)."));
+        offerPullRecovery(chatID, live->pid,
+                          tr("Live pull needs reptyr, which is not installed."),
+                          QStringLiteral("apt-get install -y reptyr"));
         return;
     }
 
@@ -977,31 +1068,60 @@ void MainWindow::verifyPull(const QString &chatID, int pid) {
     if (!ProcessScout::findDescendants(pane->shellPID(), {"reptyr"}).isEmpty())
         return;
 
-    offerKillResume(chatID, pid,
-                    tr("Live pull failed (reptyr's error is shown in the terminal).\n"
-                       "Usual cause: ptrace is restricted. One-time fix:\n"
-                       "sudo setcap cap_sys_ptrace+ep $(which reptyr)"));
+    offerPullRecovery(chatID, pid,
+                      tr("Live pull failed (reptyr's error is shown in the terminal). "
+                         "Usual cause: ptrace is restricted."),
+                      QStringLiteral("setcap cap_sys_ptrace+ep %1")
+                          .arg(QStandardPaths::findExecutable(QStringLiteral("reptyr"))));
 }
 
-void MainWindow::offerKillResume(const QString &chatID, int pid, const QString &why) {
-    // \xe2\x80\x94 = UTF-8 for em dash
-    if (!askSelectable(this, tr("Pull into Rezoom"),
-                       tr("%1\n\nFall back to kill-and-resume? The external session is "
-                          "stopped and resumed in here; for claude chats nothing is lost "
-                          "\xe2\x80\x94 the transcript is the state.").arg(why)))
-        return;
-
+void MainWindow::closeAttemptPane(const QString &chatID) {
     TerminalPane *pane = panes.value(chatID);
 
-    if (pane) { // drop the failed attempt pane
-        if (pane->shellPID() > 0)
-            kill(pane->shellPID(), SIGHUP);
+    if (!pane)
+        return;
 
-        onPaneTerminated(chatID);
+    if (pane->shellPID() > 0)
+        kill(pane->shellPID(), SIGHUP);
+
+    onPaneTerminated(chatID);
+}
+
+// Recovery for a failed live pull: fix the environment right here (pkexec
+// pops the admin-password dialog), retry, or fall back to kill-and-resume —
+// no copy-a-command-and-lose-the-dialog round trips.
+void MainWindow::offerPullRecovery(const QString &chatID, int pid, const QString &why,
+                                   const QString &fixCommand) {
+    QMessageBox box(QMessageBox::Question, tr("Pull into Rezoom"),
+                    fixCommand.isEmpty()
+                        ? why
+                        : tr("%1\n\nFix runs as admin (you'll be asked for your "
+                             "password):\npkexec %2").arg(why, fixCommand),
+                    QMessageBox::NoButton, this);
+    box.setTextInteractionFlags(Qt::TextSelectableByMouse);
+    QPushButton *fixBtn = fixCommand.isEmpty()
+        ? 0
+        : box.addButton(tr("Fix && retry"), QMessageBox::AcceptRole);
+    QPushButton *retryBtn = box.addButton(tr("Retry"), QMessageBox::ActionRole);
+    QPushButton *fallbackBtn =
+        box.addButton(tr("Kill && resume here"), QMessageBox::DestructiveRole);
+    box.addButton(QMessageBox::Cancel);
+    box.exec();
+
+    if (fixBtn && box.clickedButton() == fixBtn) {
+        QProcess fix;
+        fix.start(QStringLiteral("pkexec"), QProcess::splitCommand(fixCommand));
+        fix.waitForFinished(120000); // the password dialog takes human time
+        closeAttemptPane(chatID);
+        pullInLive(chatID);
+    } else if (box.clickedButton() == retryBtn) {
+        closeAttemptPane(chatID);
+        pullInLive(chatID);
+    } else if (box.clickedButton() == fallbackBtn) {
+        closeAttemptPane(chatID);
+        kill(pid, SIGTERM);
+        resumeWhenGone(chatID, pid, 20);
     }
-
-    kill(pid, SIGTERM);
-    resumeWhenGone(chatID, pid, 20);
 }
 
 // Resume the chat embedded once the external process is really gone

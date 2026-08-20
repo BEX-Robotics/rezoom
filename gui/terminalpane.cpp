@@ -108,13 +108,18 @@ void TerminalPane::poll() {
         return;
     }
 
-    const auto procs = ProcessScout::findDescendants(shell, {"claude", "ssh", "tmux: client"});
+    const auto procs = ProcessScout::findDescendants(shell, {"claude", "codex", "ssh", "tmux: client"});
 
     for (const auto &p : procs) {
         if (p.comm == "claude") {
             if (p.pid != lastClaudePID) {
                 lastClaudePID = p.pid;
                 emit childClaude(id, p.pid);
+            }
+        } else if (p.comm == "codex") {
+            if (p.pid != lastCodexPID) {
+                lastCodexPID = p.pid;
+                emit childCodex(id, p.pid);
             }
         } else if (p.comm == "ssh" && !reportedSsh) {
             reportedSsh = true;

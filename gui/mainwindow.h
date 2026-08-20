@@ -38,6 +38,7 @@ private slots:
     void onRegistryUpdated();
     void onPaneTerminated(const QString &chatID);
     void onChildClaude(const QString &chatID, int claudePID);
+    void onChildCodex(const QString &chatID, int codexPID);
     void onChildSsh(const QString &chatID, const QStringList &cmdline);
     void onChildTmux(const QString &chatID, const QStringList &cmdline);
     void returnToMain(FloatWindow *w, ChatView *view);
@@ -57,7 +58,9 @@ private:
     void launchChat(const QString &chatID, const QString &commandOverride = QString());
     void pullInLive(const QString &chatID);
     void verifyPull(const QString &chatID, int pid);
-    void offerKillResume(const QString &chatID, int pid, const QString &why);
+    void offerPullRecovery(const QString &chatID, int pid, const QString &why,
+                           const QString &fixCommand);
+    void closeAttemptPane(const QString &chatID);
     void resumeWhenGone(const QString &chatID, int pid, int triesLeft);
     void selectChat(const QString &chatID);
     void showContextMenu(const QPoint &pos);
@@ -93,6 +96,7 @@ private:
     void fixDerivedTitlesOnce();
     void rememberRunning();  // persist which chats have live panes (crash-safe)
     void resumePrevious();   // relaunch them on startup, staggered
+    void preTrustCwds(const QStringList &cwds);
     void saveUiState();
     void restoreUiState();
     int livePaneCount() const;

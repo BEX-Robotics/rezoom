@@ -8,8 +8,8 @@ static QColor statusColor(const QString &status) {
     if (status == "frozen")
         return QColor("#d64545"); // red: limit-frozen, waiting for reset
 
-    if (status == "busy")
-        return QColor("#3fa34d"); // green: claude is working
+    if (status == "busy" || status == "live")
+        return QColor("#3fa34d"); // green: working / session open in a pane
 
     if (status == "idle")
         return QColor("#e6a817"); // amber: waiting for the user
