@@ -27,10 +27,14 @@ QSize ChatDelegate::sizeHint(const QStyleOptionViewItem &, const QModelIndex &) 
 static void paintBackground(QPainter *p, const QStyleOptionViewItem &opt, const QRect &r) {
     if (opt.state & QStyle::State_Selected) {
         QColor sel = opt.palette.highlight().color();
-        sel.setAlpha(70);
+        sel.setAlpha(110);
         p->setPen(Qt::NoPen);
         p->setBrush(sel);
         p->drawRoundedRect(r, 8, 8);
+
+        // Accent bar — the selection must be findable at a glance.
+        p->setBrush(opt.palette.highlight().color());
+        p->drawRoundedRect(QRect(r.left(), r.top() + 4, 4, r.height() - 8), 2, 2);
     } else if (opt.state & QStyle::State_MouseOver) {
         QColor hov = opt.palette.text().color();
         hov.setAlpha(14);

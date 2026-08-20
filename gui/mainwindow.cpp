@@ -476,8 +476,10 @@ void MainWindow::refreshView(const QString &chatID) {
 void MainWindow::selectChat(const QString &chatID) {
     const QModelIndex idx = model->indexOf(chatID);
 
-    if (idx.isValid())
+    if (idx.isValid()) {
         list->setCurrentIndex(idx);
+        list->scrollTo(idx);
+    }
 }
 
 void MainWindow::onChatSelected() {
@@ -555,6 +557,8 @@ void MainWindow::launchChat(const QString &chatID, const QString &commandOverrid
         w->focusView(view);
     else
         stack->setCurrentWidget(view);
+
+    selectChat(chatID); // the list must always show what the pane shows
 }
 
 void MainWindow::onPaneTerminated(const QString &chatID) {
