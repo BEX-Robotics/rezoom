@@ -59,12 +59,14 @@ ResumePane::ResumePane(QWidget *parent) : QWidget(parent) {
     outer->addLayout(centered(launch));
 
     raiseBtn = new QPushButton(tr("Go to its window"), this);
+    raiseBtn->setMinimumHeight(40);
     connect(raiseBtn, &QPushButton::clicked, this,
             [this] { emit raiseRequested(externalPID); });
     outer->addLayout(centered(raiseBtn));
 
     note = new QLabel(this);
     note->setAlignment(Qt::AlignHCenter);
+    note->setTextInteractionFlags(Qt::TextSelectableByMouse); // pids etc. are copyable
     note->setStyleSheet("color: palette(placeholder-text);");
     outer->addWidget(note);
     outer->addStretch(3);
