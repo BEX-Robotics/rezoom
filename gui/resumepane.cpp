@@ -48,10 +48,15 @@ ResumePane::ResumePane(QWidget *parent) : QWidget(parent) {
 
     launch = new QPushButton(this);
     launch->setMinimumHeight(40);
-    connect(launch, &QPushButton::clicked, this, &ResumePane::launchRequested);
+    connect(launch, &QPushButton::clicked, this, [this] {
+        if (beaming)
+            emit pullRequested();
+        else
+            emit launchRequested();
+    });
     outer->addLayout(centered(launch));
 
-    raiseBtn = new QPushButton(tr("Raise external window"), this);
+    raiseBtn = new QPushButton(tr("Go to its window"), this);
     connect(raiseBtn, &QPushButton::clicked, this,
             [this] { emit raiseRequested(externalPID); });
     outer->addLayout(centered(raiseBtn));
@@ -88,13 +93,16 @@ void ResumePane::setChat(const Chat &c, const QString &resolvedCommand, int pid)
 
     const bool external = pid > 0;
     raiseBtn->setVisible(external);
-    launch->setEnabled(!external);
+    launch->setEnabled(true);
+    beaming = external;
 
     if (external) {
-        launch->setText(tr("Running outside Rezoom (pid %1)").arg(pid));
-
-        // \xe2\x80\x94 = UTF-8 for "—" (em dash)
-        note->setText(tr("Resuming here would conflict \xe2\x80\x94 raise its window instead."));
+        // \xe2\xa4\xb5 = UTF-8 for "⤵" (arrow pointing down then curving left)
+        launch->setText(tr("\xe2\xa4\xb5  Beam it in"));
+        note->setText(tr("Running outside Rezoom (pid %1) \xe2\x80\x94 beam it into an "
+                         // \xe2\x80\x94 = UTF-8 for "—" (em dash)
+                         "embedded pane, or go to its window.")
+                          .arg(pid));
     } else if (c.kind == "ssh") {
         launch->setText(tr("Connect: %1").arg(resolvedCommand.left(60)));
         note->setText(tr("Nothing connects until you press this."));

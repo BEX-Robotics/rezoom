@@ -20,6 +20,7 @@ public:
 signals:
     void launchRequested();
     void raiseRequested(int externalPID);
+    void pullRequested(); // "beam it in": live pull, verified fallback
 
 private:
     QLabel *avatar = 0;
@@ -30,4 +31,5 @@ private:
     QPushButton *launch = 0;
     QPushButton *raiseBtn = 0;
     int externalPID = 0;
+    bool beaming = false; // external session → the big button beams instead of launching
 };
