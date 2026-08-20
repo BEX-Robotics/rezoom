@@ -99,9 +99,8 @@ void NotificationWatcher::readNew() {
             info.resetAtMs = parseResetTime(msg, info.ts);
             freezes.insert(sid, info);
             changed = true;
-        } else if (freezes.remove(sid)) {
-            changed = true; // it spoke again about something else — not frozen
-        }
+        } else if (freezes.remove(sid))
+            changed = true; // spoke again about something else — not frozen
     }
 
     offset = f.pos();

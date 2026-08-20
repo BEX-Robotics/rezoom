@@ -2,6 +2,7 @@
 #include <QAbstractListModel>
 #include <QSet>
 
+struct Chat;
 class SessionStore;
 class LiveRegistry;
 class NotificationWatcher;
@@ -52,6 +53,9 @@ private:
         QString kind;
         bool unread = false;
     };
+
+    Row makeRow(const Chat &c, const QString &status) const;
+    bool matchesFilter(const Chat &c) const;
 
     SessionStore *store = 0;
     LiveRegistry *registry = 0;

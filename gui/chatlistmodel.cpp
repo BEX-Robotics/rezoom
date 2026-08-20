@@ -48,6 +48,43 @@ ChatListModel::ChatListModel(SessionStore *store, LiveRegistry *registry,
     rebuild();
 }
 
+// Everything about one list row except sort keys and time text.
+ChatListModel::Row ChatListModel::makeRow(const Chat &c, const QString &status) const {
+    Row row = {};
+    row.id = c.id;
+    row.title = c.title.isEmpty() ? c.kind : c.title;
+    row.status = status;
+    row.preview = statusPreview(status, c.preview);
+    row.tooltip = row.title;
+    row.tintHex = Chat::tintColorHex(c.tint);
+    row.monogram = c.monogram();
+    row.kind = c.kind;
+    row.unread = unreadIDs.contains(c.id);
+
+    // A limit-freeze reported by the Notification hook overrides presence.
+    if (const auto fr = notifications->freezeFor(c.claudeSessionID)) {
+        row.status = QStringLiteral("frozen");
+        row.tooltip = fr->message;
+
+        // \xe2\x9b\x94 = UTF-8 for the no-entry sign, \xe2\x80\x94 = em dash
+        row.preview = fr->resetAtMs
+            ? QString::fromUtf8("\xe2\x9b\x94 frozen \xe2\x80\x94 resets at %1")
+                  .arg(QDateTime::fromMSecsSinceEpoch(fr->resetAtMs).toString("HH:mm"))
+            : QString::fromUtf8("\xe2\x9b\x94 frozen \xe2\x80\x94 %1").arg(fr->message.left(60));
+    }
+
+    return row;
+}
+
+bool ChatListModel::matchesFilter(const Chat &c) const {
+    if (filter.isEmpty())
+        return true;
+
+    return c.title.contains(filter, Qt::CaseInsensitive)
+        || c.preview.contains(filter, Qt::CaseInsensitive)
+        || c.cwd.contains(filter, Qt::CaseInsensitive);
+}
+
 void ChatListModel::rebuild() {
     beginResetModel();
     rows.clear();
@@ -60,42 +97,15 @@ void ChatListModel::rebuild() {
     QList<Sortable> tmp;
 
     for (const Chat &c : store->chats()) {
-        if (c.archived != showArchived)
-            continue;
-
-        if (!filter.isEmpty() && !c.title.contains(filter, Qt::CaseInsensitive)
-            && !c.preview.contains(filter, Qt::CaseInsensitive)
-            && !c.cwd.contains(filter, Qt::CaseInsensitive))
+        if (c.archived != showArchived || !matchesFilter(c))
             continue;
 
         Sortable s = {};
         const auto live = registry->entryForSession(c.claudeSessionID);
         s.running = live.has_value();
-        s.lastActive = s.running ? live->updatedAt : c.lastActiveAt;
-        if (s.lastActive < c.lastActiveAt)
-            s.lastActive = c.lastActiveAt;
-
-        s.row.id = c.id;
-        s.row.title = c.title.isEmpty() ? c.kind : c.title;
-        s.row.status = s.running ? live->status : QStringLiteral("off");
-        s.row.preview = statusPreview(s.row.status, c.preview);
-        s.row.tooltip = s.row.title;
-
-        // A limit-freeze reported by the Notification hook overrides presence.
-        if (const auto fr = notifications->freezeFor(c.claudeSessionID)) {
-            s.row.status = QStringLiteral("frozen");
-            s.row.tooltip = fr->message;
-            // \xe2\x9b\x94 = UTF-8 for the no-entry sign, \xe2\x80\x94 = em dash
-            s.row.preview = fr->resetAtMs
-                ? QString::fromUtf8("\xe2\x9b\x94 frozen \xe2\x80\x94 resets at %1")
-                      .arg(QDateTime::fromMSecsSinceEpoch(fr->resetAtMs).toString("HH:mm"))
-                : QString::fromUtf8("\xe2\x9b\x94 frozen \xe2\x80\x94 %1").arg(fr->message.left(60));
-        }
+        s.lastActive = qMax(s.running ? live->updatedAt : c.lastActiveAt, c.lastActiveAt);
+        s.row = makeRow(c, s.running ? live->status : QStringLiteral("off"));
         s.row.timeText = relativeTime(s.lastActive);
-        s.row.tintHex = Chat::tintColorHex(c.tint);
-        s.row.monogram = c.monogram();
-        s.row.kind = c.kind;
-        s.row.unread = unreadIDs.contains(c.id);
         tmp.append(s);
     }
 
