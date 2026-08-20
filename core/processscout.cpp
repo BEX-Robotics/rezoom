@@ -130,6 +130,16 @@ QList<int> children(int pid) {
 
 #endif
 
+QString tty(int pid) {
+#ifdef Q_OS_MACOS
+    Q_UNUSED(pid);
+
+    return {};
+#else
+    return QFile::symLinkTarget(QStringLiteral("/proc/%1/fd/0").arg(pid));
+#endif
+}
+
 QList<int> descendants(int pid) {
     QList<int> out;
     QList<int> queue = children(pid);

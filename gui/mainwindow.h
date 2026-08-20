@@ -61,6 +61,9 @@ private:
     void offerPullRecovery(const QString &chatID, int pid, const QString &why,
                            const QString &fixCommand);
     void closeAttemptPane(const QString &chatID);
+    int paneTargetPid(TerminalPane *pane) const;
+    void verifyPopOut(const QString &chatID, int target, const QString &beforeTty);
+    void popOutRecovery(const QString &chatID, const QString &why, const QString &fixCommand);
     void resumeWhenGone(const QString &chatID, int pid, int triesLeft);
     void selectChat(const QString &chatID);
     void showContextMenu(const QPoint &pos);

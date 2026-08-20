@@ -33,4 +33,8 @@ QList<ProcInfo> runningSsh();
 
 // Best-effort ssh destination from a client cmdline ("user@host" or "host").
 QString sshDestination(const QStringList &cmdline);
+
+// The pty a process reads from (/proc/<pid>/fd/0 target) — empty on macOS.
+// Comparing before/after tells whether a reptyr move actually happened.
+QString tty(int pid);
 }

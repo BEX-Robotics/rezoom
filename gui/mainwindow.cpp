@@ -2,10 +2,12 @@
 
 #include <algorithm>
 
+#include <QClipboard>
 #include <QCloseEvent>
 #include <QDir>
 #include <QFile>
 #include <QFileDialog>
+#include <QGuiApplication>
 #include <QInputDialog>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -1215,37 +1217,66 @@ void MainWindow::closeAttemptPane(const QString &chatID) {
     onPaneTerminated(chatID);
 }
 
-// Recovery for a failed live pull: fix the environment right here (pkexec
-// pops the admin-password dialog), retry, or fall back to kill-and-resume —
-// no copy-a-command-and-lose-the-dialog round trips.
-void MainWindow::offerPullRecovery(const QString &chatID, int pid, const QString &why,
-                                   const QString &fixCommand) {
-    QMessageBox box(QMessageBox::Question, tr("Pull into Rezoom"),
+enum class Recovery { Fix, Retry, Fallback, Cancel };
+
+// Shared recovery dialog for a failed live move (either direction): fix the
+// environment right here (pkexec pops the password dialog), copy the command,
+// retry, or take the destructive fallback. No copy-and-lose-the-dialog trips.
+static Recovery recoveryDialog(QWidget *parent, const QString &why,
+                               const QString &fixCommand, const QString &fallbackLabel) {
+    QMessageBox box(QMessageBox::Question, QObject::tr("Live move"),
                     fixCommand.isEmpty()
                         ? why
-                        : tr("%1\n\nFix runs as admin (you'll be asked for your "
-                             "password):\npkexec %2").arg(why, fixCommand),
-                    QMessageBox::NoButton, this);
+                        : QObject::tr("%1\n\nFix runs as admin (you'll be asked for "
+                                      "your password):\npkexec %2").arg(why, fixCommand),
+                    QMessageBox::NoButton, parent);
     box.setTextInteractionFlags(Qt::TextSelectableByMouse);
     QPushButton *fixBtn = fixCommand.isEmpty()
         ? 0
-        : box.addButton(tr("Fix && retry"), QMessageBox::AcceptRole);
-    QPushButton *retryBtn = box.addButton(tr("Retry"), QMessageBox::ActionRole);
-    QPushButton *fallbackBtn =
-        box.addButton(tr("Kill && resume here"), QMessageBox::DestructiveRole);
+        : box.addButton(QObject::tr("Fix && retry"), QMessageBox::AcceptRole);
+    QPushButton *copyBtn = fixCommand.isEmpty()
+        ? 0
+        : box.addButton(QObject::tr("Copy command"), QMessageBox::ActionRole);
+    QPushButton *retryBtn = box.addButton(QObject::tr("Retry"), QMessageBox::ActionRole);
+    QPushButton *fallbackBtn = box.addButton(fallbackLabel, QMessageBox::DestructiveRole);
     box.addButton(QMessageBox::Cancel);
+
+    if (copyBtn) {
+        // Copy must not close the dialog: detach the button from the box.
+        copyBtn->disconnect();
+        QObject::connect(copyBtn, &QPushButton::clicked, copyBtn, [copyBtn, fixCommand] {
+            QGuiApplication::clipboard()->setText(fixCommand);
+            copyBtn->setText(QObject::tr("Copied")); // \xe2\x9c\x93 would be nicer but plain is clear
+        });
+    }
+
     box.exec();
 
     if (fixBtn && box.clickedButton() == fixBtn) {
         QProcess fix;
         fix.start(QStringLiteral("pkexec"), QProcess::splitCommand(fixCommand));
         fix.waitForFinished(120000); // the password dialog takes human time
+
+        return Recovery::Fix;
+    }
+
+    if (box.clickedButton() == retryBtn)
+        return Recovery::Retry;
+
+    if (box.clickedButton() == fallbackBtn)
+        return Recovery::Fallback;
+
+    return Recovery::Cancel;
+}
+
+void MainWindow::offerPullRecovery(const QString &chatID, int pid, const QString &why,
+                                   const QString &fixCommand) {
+    const Recovery r = recoveryDialog(this, why, fixCommand, tr("Kill && resume here"));
+
+    if (r == Recovery::Fix || r == Recovery::Retry) {
         closeAttemptPane(chatID);
         pullInLive(chatID);
-    } else if (box.clickedButton() == retryBtn) {
-        closeAttemptPane(chatID);
-        pullInLive(chatID);
-    } else if (box.clickedButton() == fallbackBtn) {
+    } else if (r == Recovery::Fallback) {
         closeAttemptPane(chatID);
         kill(pid, SIGTERM);
         resumeWhenGone(chatID, pid, 20);
@@ -1273,6 +1304,17 @@ void MainWindow::resumeWhenGone(const QString &chatID, int pid, int triesLeft) {
     selectChat(chatID);
 }
 
+// The interesting process inside a pane (claude/codex/ssh), else the shell.
+int MainWindow::paneTargetPid(TerminalPane *pane) const {
+    const auto procs =
+        ProcessScout::findDescendants(pane->shellPID(), {"claude", "codex", "ssh"});
+
+    return procs.isEmpty() ? pane->shellPID() : procs.first().pid;
+}
+
+// Pop out mirrors beam-in: try the live move (reptyr running in the new
+// Konsole window steals the process — nothing killed), verify, and only
+// offer kill-and-reopen as the fallback.
 void MainWindow::popOut(const QString &chatID) {
     const Chat *cp = store.find(chatID);
 
@@ -1281,21 +1323,67 @@ void MainWindow::popOut(const QString &chatID) {
 
     TerminalPane *pane = panes.value(chatID);
 
-    if (pane) {
-        const auto answer = QMessageBox::question(
-            this, tr("Pop out"),
-            tr("Close the embedded terminal and reopen this session in a Konsole window?"));
-
-        if (answer != QMessageBox::Yes)
-            return;
-
-        if (pane->shellPID() > 0)
-            kill(pane->shellPID(), SIGHUP);
-
-        onPaneTerminated(chatID);
+    if (!pane) { // nothing running here — plain external launch
+        launchInKonsole(cp->host.isEmpty() ? cp->cwd : QString(), templates.resolveFor(*cp));
+        return;
     }
 
-    launchInKonsole(cp->host.isEmpty() ? cp->cwd : QString(), templates.resolveFor(*cp));
+    const int target = paneTargetPid(pane);
+
+    if (QStandardPaths::findExecutable(QStringLiteral("reptyr")).isEmpty()) {
+        popOutRecovery(chatID, tr("Live move needs reptyr, which is not installed."),
+                       QStringLiteral("apt-get install -y reptyr"));
+        return;
+    }
+
+    const QString before = ProcessScout::tty(target);
+    launchInKonsole(cp->host.isEmpty() ? cp->cwd : QString(),
+                    QStringLiteral("reptyr %1").arg(target));
+    QTimer::singleShot(2500, this, [this, chatID, target, before] {
+        verifyPopOut(chatID, target, before);
+    });
+}
+
+void MainWindow::verifyPopOut(const QString &chatID, int target, const QString &beforeTty) {
+    const QString now = ProcessScout::tty(target);
+
+    if (!now.isEmpty() && now != beforeTty) {
+        closeAttemptPane(chatID); // moved out — retire the emptied pane
+        return;
+    }
+
+    popOutRecovery(chatID,
+                   tr("Live move failed (reptyr's error is in the new Konsole window "
+                      "\xe2\x80\x94 close it). Usual cause: ptrace is restricted."),
+                   // \xe2\x80\x94 = UTF-8 for em dash
+                   QStringLiteral("setcap cap_sys_ptrace+ep %1")
+                       .arg(QStandardPaths::findExecutable(QStringLiteral("reptyr"))));
+}
+
+void MainWindow::popOutRecovery(const QString &chatID, const QString &why,
+                                const QString &fixCommand) {
+    const Recovery r = recoveryDialog(this, why, fixCommand, tr("Kill && reopen in Konsole"));
+
+    if (r == Recovery::Fix || r == Recovery::Retry) {
+        popOut(chatID);
+        return;
+    }
+
+    if (r == Recovery::Fallback) {
+        const Chat *cp = store.find(chatID);
+        TerminalPane *pane = panes.value(chatID);
+
+        if (pane) {
+            if (pane->shellPID() > 0)
+                kill(pane->shellPID(), SIGHUP);
+
+            onPaneTerminated(chatID);
+        }
+
+        if (cp)
+            launchInKonsole(cp->host.isEmpty() ? cp->cwd : QString(),
+                            templates.resolveFor(*cp));
+    }
 }
 
 void MainWindow::raiseExternal(int pid) {
