@@ -140,6 +140,7 @@ QWidget *MainWindow::buildLeftPanel() {
     layout->setContentsMargins(4, 4, 0, 4);
 
     search = new QLineEdit(panel);
+
     // \xe2\x80\xa6 = UTF-8 for "…" (ellipsis)
     search->setPlaceholderText(tr("Search\xe2\x80\xa6  (Ctrl+Shift+F)"));
     search->setClearButtonEnabled(true);
