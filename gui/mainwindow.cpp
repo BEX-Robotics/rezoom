@@ -43,6 +43,32 @@ static void launchInKonsole(const QString &cwd, const QString &command) {
     ExternalTerminal::launch(cwd, command);
 }
 
+// Policy: any dialog text showing ids, commands or paths must be
+// mouse-copyable (see CLAUDE.md). Qt's static convenience dialogs aren't —
+// these wrappers are.
+static QString getTextSelectable(QWidget *parent, const QString &title,
+                                 const QString &label, const QString &text, bool *ok) {
+    QInputDialog dialog(parent);
+    dialog.setWindowTitle(title);
+    dialog.setLabelText(label);
+    dialog.setTextValue(text);
+
+    for (QLabel *l : dialog.findChildren<QLabel *>())
+        l->setTextInteractionFlags(Qt::TextSelectableByMouse);
+
+    *ok = dialog.exec() == QDialog::Accepted;
+
+    return dialog.textValue();
+}
+
+static bool askSelectable(QWidget *parent, const QString &title, const QString &text) {
+    QMessageBox box(QMessageBox::Question, title, text,
+                    QMessageBox::Yes | QMessageBox::No, parent);
+    box.setTextInteractionFlags(Qt::TextSelectableByMouse);
+
+    return box.exec() == QMessageBox::Yes;
+}
+
 MainWindow::MainWindow() {
     setWindowTitle(QStringLiteral("Rezoom"));
     resize(1200, 760);
@@ -832,8 +858,7 @@ void MainWindow::renameChat(const QString &chatID) {
         return;
 
     bool ok = false;
-    const QString title = QInputDialog::getText(this, tr("Rename"), tr("Title:"),
-                                                QLineEdit::Normal, cp->title, &ok);
+    const QString title = getTextSelectable(this, tr("Rename"), tr("Title:"), cp->title, &ok);
 
     if (!ok)
         return;
@@ -860,8 +885,8 @@ void MainWindow::editCommand(const QString &chatID) {
     bool ok = false;
     const QString hint = tr("Resume command (empty = template \"%1\": %2)")
                              .arg(templates.defaultTemplateFor(*cp), templates.resolveFor(*cp));
-    const QString cmd = QInputDialog::getText(this, tr("Edit resume command"), hint,
-                                              QLineEdit::Normal, cp->commandOverride, &ok);
+    const QString cmd = getTextSelectable(this, tr("Edit resume command"), hint,
+                                          cp->commandOverride, &ok);
 
     if (!ok)
         return;
@@ -959,14 +984,11 @@ void MainWindow::verifyPull(const QString &chatID, int pid) {
 }
 
 void MainWindow::offerKillResume(const QString &chatID, int pid, const QString &why) {
-    const auto answer = QMessageBox::question(
-        this, tr("Pull into Rezoom"),
-        tr("%1\n\nFall back to kill-and-resume? The external session is stopped and "
-           "resumed in here; for claude chats nothing is lost \xe2\x80\x94 the "
-           // \xe2\x80\x94 = UTF-8 for em dash
-           "transcript is the state.").arg(why));
-
-    if (answer != QMessageBox::Yes)
+    // \xe2\x80\x94 = UTF-8 for em dash
+    if (!askSelectable(this, tr("Pull into Rezoom"),
+                       tr("%1\n\nFall back to kill-and-resume? The external session is "
+                          "stopped and resumed in here; for claude chats nothing is lost "
+                          "\xe2\x80\x94 the transcript is the state.").arg(why)))
         return;
 
     TerminalPane *pane = panes.value(chatID);
@@ -1106,11 +1128,9 @@ void MainWindow::scanRemote(const QString &chatID) {
     const QString probe = cp->entryCommand
         + " 'for f in ~/.claude/sessions/*.json; do cat \"$f\" 2>/dev/null; echo; done; "
           "echo ===TMUX===; tmux ls -F \"#{session_name}\" 2>/dev/null; true'";
-    const auto consent = QMessageBox::question(
-        this, tr("Scan remote"),
-        tr("Run this to look for claude sessions and tmux on the remote host?\n\n%1").arg(probe));
-
-    if (consent != QMessageBox::Yes)
+    if (!askSelectable(this, tr("Scan remote"),
+                       tr("Run this to look for claude sessions and tmux on the remote "
+                          "host?\n\n%1").arg(probe)))
         return;
 
     QProcess proc;
@@ -1144,11 +1164,9 @@ void MainWindow::adoptRemoteFindings(const Chat &base, const QList<RemoteFinding
     for (const RemoteFinding &f : found)
         lines << (f.kind == "claude" ? f.name + "  (" + f.cwd + ")" : "tmux: " + f.name);
 
-    const auto answer = QMessageBox::question(
-        this, tr("Scan remote"),
-        tr("Found on %1:\n\n%2\n\nAdopt all as chats?").arg(base.host, lines.join('\n')));
-
-    if (answer != QMessageBox::Yes)
+    if (!askSelectable(this, tr("Scan remote"),
+                       tr("Found on %1:\n\n%2\n\nAdopt all as chats?")
+                           .arg(base.host, lines.join('\n'))))
         return;
 
     for (const RemoteFinding &f : found) {
@@ -1211,10 +1229,10 @@ void MainWindow::newTerminal() {
 
 void MainWindow::newSsh() {
     bool ok = false;
-    const QString entry = QInputDialog::getText(
+    const QString entry = getTextSelectable(
         this, tr("New SSH session"),
         tr("Connect command (e.g. \"ssh dev.example.com\" or an alias):"),
-        QLineEdit::Normal, QStringLiteral("ssh "), &ok);
+        QStringLiteral("ssh "), &ok);
 
     if (!ok || entry.trimmed().isEmpty())
         return;

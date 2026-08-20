@@ -33,6 +33,7 @@ ResumePane::ResumePane(QWidget *parent) : QWidget(parent) {
     info = new QLabel(this);
     info->setAlignment(Qt::AlignHCenter);
     info->setStyleSheet("color: palette(placeholder-text);");
+    info->setTextInteractionFlags(Qt::TextSelectableByMouse);
     outer->addWidget(info);
     outer->addSpacing(16);
 
