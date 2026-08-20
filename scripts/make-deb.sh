@@ -15,6 +15,7 @@ PKG=dist/pkg
 rm -rf "$PKG"
 mkdir -p "$PKG/DEBIAN" "$PKG/usr/bin" "$PKG/usr/share/applications" "$PKG/usr/share/icons/hicolor/scalable/apps"
 cp "$BUILD/rezoom" "$BUILD/rezoom-cli" "$PKG/usr/bin/"
+install -m755 dist/rezoom-notify-hook.sh "$PKG/usr/bin/rezoom-notify-hook"
 cp dist/rezoom.desktop "$PKG/usr/share/applications/"
 cp dist/rezoom.svg "$PKG/usr/share/icons/hicolor/scalable/apps/"
 

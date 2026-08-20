@@ -3,6 +3,7 @@
 #include <QDateTime>
 
 #include "core/liveregistry.h"
+#include "core/notifications.h"
 #include "core/sessionstore.h"
 
 #include "chatlistmodel.h"
@@ -24,7 +25,8 @@ static QString relativeTime(qint64 ms) {
 
 static QString statusPreview(const QString &status, const QString &fallback) {
     if (status == "busy")
-        return QStringLiteral("\xe2\x9c\xb3 working\xe2\x80\xa6"); // ✳ + … (U+2733, ellipsis)
+        // \xe2\x9c\xb3 = UTF-8 for "✳", \xe2\x80\xa6 = "…" (ellipsis)
+        return QString::fromUtf8("\xe2\x9c\xb3 working\xe2\x80\xa6");
 
     if (status == "idle")
         return QStringLiteral("waiting for you");
@@ -35,11 +37,14 @@ static QString statusPreview(const QString &status, const QString &fallback) {
     return fallback;
 }
 
-ChatListModel::ChatListModel(SessionStore *store, LiveRegistry *registry, QObject *parent)
-    : QAbstractListModel(parent), store(store), registry(registry) {
+ChatListModel::ChatListModel(SessionStore *store, LiveRegistry *registry,
+                             NotificationWatcher *notifications, QObject *parent)
+    : QAbstractListModel(parent), store(store), registry(registry),
+      notifications(notifications) {
 
     connect(store, &SessionStore::changed, this, &ChatListModel::rebuild);
     connect(registry, &LiveRegistry::updated, this, &ChatListModel::rebuild);
+    connect(notifications, &NotificationWatcher::updated, this, &ChatListModel::rebuild);
     rebuild();
 }
 
@@ -74,6 +79,18 @@ void ChatListModel::rebuild() {
         s.row.title = c.title.isEmpty() ? c.kind : c.title;
         s.row.status = s.running ? live->status : QStringLiteral("off");
         s.row.preview = statusPreview(s.row.status, c.preview);
+        s.row.tooltip = s.row.title;
+
+        // A limit-freeze reported by the Notification hook overrides presence.
+        if (const auto fr = notifications->freezeFor(c.claudeSessionID)) {
+            s.row.status = QStringLiteral("frozen");
+            s.row.tooltip = fr->message;
+            // \xe2\x9b\x94 = UTF-8 for the no-entry sign, \xe2\x80\x94 = em dash
+            s.row.preview = fr->resetAtMs
+                ? QString::fromUtf8("\xe2\x9b\x94 frozen \xe2\x80\x94 resets at %1")
+                      .arg(QDateTime::fromMSecsSinceEpoch(fr->resetAtMs).toString("HH:mm"))
+                : QString::fromUtf8("\xe2\x9b\x94 frozen \xe2\x80\x94 %1").arg(fr->message.left(60));
+        }
         s.row.timeText = relativeTime(s.lastActive);
         s.row.tintHex = Chat::tintColorHex(c.tint);
         s.row.monogram = c.monogram();
@@ -115,7 +132,7 @@ QVariant ChatListModel::data(const QModelIndex &index, int role) const {
     case MonogramRole: return r.monogram;
     case UnreadRole:   return r.unread;
     case KindRole:     return r.kind;
-    case Qt::ToolTipRole: return r.title;
+    case Qt::ToolTipRole: return r.tooltip;
     }
 
     return {};

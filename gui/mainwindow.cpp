@@ -45,7 +45,7 @@ MainWindow::MainWindow() {
     setWindowTitle(QStringLiteral("Rezoom"));
     resize(1200, 760);
 
-    model = new ChatListModel(&store, &registry, this);
+    model = new ChatListModel(&store, &registry, &notifications, this);
 
     splitter = new QSplitter(this);
     splitter->addWidget(buildLeftPanel());
@@ -416,6 +416,16 @@ void MainWindow::onRegistryUpdated() {
     // Resume panes flip between Rezoom/raise as external sessions come and go.
     for (auto it = views.constBegin(); it != views.constEnd(); ++it)
         refreshView(it.key());
+
+    // A frozen session that went busy (or exited) is no longer frozen.
+    const QStringList frozen = notifications.frozenSessions();
+
+    for (const QString &sid : frozen) {
+        const auto live = registry.entryForSession(sid);
+
+        if (!live || live->status == "busy")
+            notifications.clear(sid);
+    }
 
     autoAdoptNew();
 }

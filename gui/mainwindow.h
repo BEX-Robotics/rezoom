@@ -5,6 +5,7 @@
 #include <QSet>
 
 #include "core/liveregistry.h"
+#include "core/notifications.h"
 #include "core/sessionstore.h"
 #include "core/templates.h"
 
@@ -84,6 +85,7 @@ private:
     SessionStore store;
     Templates templates;
     LiveRegistry registry;
+    NotificationWatcher notifications;
     ChatListModel *model = 0;
     QListView *list = 0;
     QLineEdit *search = 0;

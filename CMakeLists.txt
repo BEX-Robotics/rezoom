@@ -36,6 +36,7 @@ add_library(rezoomcore STATIC
     core/liveregistry.cpp
     core/transcriptindex.cpp
     core/processscout.cpp
+    core/notifications.cpp
     core/externalterminal.cpp)
 target_include_directories(rezoomcore PUBLIC ${CMAKE_SOURCE_DIR})
 target_link_libraries(rezoomcore PUBLIC Qt6::Core)
@@ -77,6 +78,8 @@ target_link_libraries(rezoom-cli PRIVATE rezoomcore)
 
 include(GNUInstallDirs)
 install(TARGETS rezoom rezoom-cli RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(PROGRAMS dist/rezoom-notify-hook.sh RENAME rezoom-notify-hook
+        DESTINATION ${CMAKE_INSTALL_BINDIR})
 if(UNIX AND NOT APPLE)
     install(FILES dist/rezoom.desktop DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
     install(FILES dist/rezoom.svg DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps)

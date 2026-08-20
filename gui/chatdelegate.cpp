@@ -5,6 +5,9 @@
 #include "chatdelegate.h"
 
 static QColor statusColor(const QString &status) {
+    if (status == "frozen")
+        return QColor("#d64545"); // red: limit-frozen, waiting for reset
+
     if (status == "busy")
         return QColor("#3fa34d"); // green: claude is working
 
@@ -98,9 +101,10 @@ static void paintPreviewLine(QPainter *p, const QStyleOptionViewItem &opt, const
     prevFont.setBold(unread);
     prevFont.setItalic(status == "busy");
     p->setFont(prevFont);
-    p->setPen(status == "busy" ? QColor("#3fa34d")
-              : status == "idle" ? QColor("#e6a817")
-                                 : opt.palette.placeholderText().color());
+    p->setPen(status == "frozen" ? QColor("#d64545")
+              : status == "busy"   ? QColor("#3fa34d")
+              : status == "idle"   ? QColor("#e6a817")
+                                   : opt.palette.placeholderText().color());
     int prevW = line2.width();
 
     if (unread)

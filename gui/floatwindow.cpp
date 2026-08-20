@@ -9,7 +9,7 @@ FloatWindow::FloatWindow(const QString &name, QWidget *parent)
     : QWidget(parent, Qt::Window), winName(name) {
 
     // \xe2\x80\x94 = UTF-8 for "—" (em dash)
-    setWindowTitle(QStringLiteral("Rezoom \xe2\x80\x94 ") + name);
+    setWindowTitle(QString::fromUtf8("Rezoom \xe2\x80\x94 ") + name);
     resize(900, 620);
 
     auto *layout = new QVBoxLayout(this);

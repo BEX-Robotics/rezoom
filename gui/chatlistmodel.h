@@ -4,6 +4,7 @@
 
 class SessionStore;
 class LiveRegistry;
+class NotificationWatcher;
 
 // Left-panel list: chats joined with live presence, filtered and sorted
 // WhatsApp-style (running first, then most recently active).
@@ -22,7 +23,8 @@ public:
         KindRole,
     };
 
-    ChatListModel(SessionStore *store, LiveRegistry *registry, QObject *parent = 0);
+    ChatListModel(SessionStore *store, LiveRegistry *registry,
+                  NotificationWatcher *notifications, QObject *parent = 0);
 
     int rowCount(const QModelIndex &parent = QModelIndex()) const override;
     QVariant data(const QModelIndex &index, int role) const override;
@@ -44,6 +46,7 @@ private:
         QString preview;
         QString timeText;
         QString status;
+        QString tooltip;
         QString tintHex;
         QString monogram;
         QString kind;
@@ -52,6 +55,7 @@ private:
 
     SessionStore *store = 0;
     LiveRegistry *registry = 0;
+    NotificationWatcher *notifications = 0;
     QList<Row> rows;
     QString filter;
     QSet<QString> unreadIDs;

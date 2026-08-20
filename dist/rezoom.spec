@@ -31,6 +31,7 @@ floating group windows, archiving. Every session stays forever resumable.
 %files
 %{_bindir}/rezoom
 %{_bindir}/rezoom-cli
+%{_bindir}/rezoom-notify-hook
 %{_datadir}/applications/rezoom.desktop
 %{_datadir}/icons/hicolor/scalable/apps/rezoom.svg
 

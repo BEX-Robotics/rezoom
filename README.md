@@ -37,6 +37,8 @@ claude, plain shell, ssh, tmux — is a "chat" in the left panel and stays
 - **Pull in live**: an externally running session can be pulled into an
   embedded pane without killing it (reptyr); if ptrace is restricted the app
   verifies the failure and falls back to lossless kill-and-resume.
+- **Freeze detection**: a Notification hook feeds limit/credit banners into
+  the app — frozen sessions get a red badge with the reset time.
 - **Archive**: hide finished chats without losing resumability.
 
 ## Build

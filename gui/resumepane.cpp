@@ -83,7 +83,7 @@ void ResumePane::setChat(const Chat &c, const QString &resolvedCommand, int pid)
         parts << c.claudeSessionID.left(8);
 
     // \xe2\x80\xa2 = UTF-8 for "•" (bullet)
-    info->setText(parts.join(QStringLiteral("  \xe2\x80\xa2  ")));
+    info->setText(parts.join(QString::fromUtf8("  \xe2\x80\xa2  ")));
     command->setText(resolvedCommand.isEmpty() ? tr("(plain shell)") : resolvedCommand);
 
     const bool external = pid > 0;
