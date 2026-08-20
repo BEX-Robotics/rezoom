@@ -674,6 +674,7 @@ void MainWindow::showContextMenu(const QPoint &pos) {
     if (live && !panes.contains(id)) {
         const int pid = live->pid;
         menu.addAction(tr("Go to its window"), this, [this, pid] { raiseExternal(pid); });
+
         // \xe2\xa4\xb5 = UTF-8 for "⤵"
         menu.addAction(tr("\xe2\xa4\xb5 Beam it in"), this, [this, id] { pullInLive(id); });
     }
