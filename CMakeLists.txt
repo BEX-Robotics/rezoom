@@ -59,6 +59,7 @@ add_executable(rezoom
     gui/floatwindow.cpp
     gui/adoptdialog.cpp
     gui/settingsdialog.cpp
+    gui/shortcutsdialog.cpp
     gui/singleinstance.cpp
     gui/resources.qrc)
 target_compile_definitions(rezoom PRIVATE REZOOM_VERSION="${PROJECT_VERSION}")

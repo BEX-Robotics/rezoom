@@ -48,6 +48,7 @@ ResumePane::ResumePane(QWidget *parent) : QWidget(parent) {
 
     launch = new QPushButton(this);
     launch->setMinimumHeight(40);
+    launch->setToolTip(QStringLiteral("Ctrl+Shift+Return"));
     connect(launch, &QPushButton::clicked, this, [this] {
         if (beaming)
             emit pullRequested();

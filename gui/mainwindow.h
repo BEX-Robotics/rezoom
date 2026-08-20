@@ -74,6 +74,19 @@ private:
     void newSsh();
     void openAdopt();
     void openSettings();
+    void buildShortcuts();
+    void addChord(const char *chord, const char *what, void (MainWindow::*slot)());
+    void actOnCurrent();  // resume / beam / connect — state-aware
+    void renameCurrent();
+    void archiveToggleCurrent();
+    void floatToggleCurrent();
+    void popOutCurrent();
+    void closePaneCurrent();
+    void stepChat(int delta);
+    void nextChat();
+    void prevChat();
+    void focusSearch();
+    void openShortcuts();
     void updateArchivedButton();
     void autoAdoptNew();
     Chat chatFromLive(const LiveEntry &e);

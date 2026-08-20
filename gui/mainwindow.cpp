@@ -36,6 +36,7 @@
 #include "mainwindow.h"
 #include "resumepane.h"
 #include "settingsdialog.h"
+#include "shortcutsdialog.h"
 #include "terminalpane.h"
 
 static void launchInKonsole(const QString &cwd, const QString &command) {
@@ -56,6 +57,7 @@ MainWindow::MainWindow() {
     splitter->setSizes({300, 900});
     setCentralWidget(splitter);
 
+    buildShortcuts();
     connect(&registry, &LiveRegistry::updated, this, &MainWindow::onRegistryUpdated);
     onRegistryUpdated();
     restoreUiState();
@@ -138,7 +140,8 @@ QWidget *MainWindow::buildLeftPanel() {
     layout->setContentsMargins(4, 4, 0, 4);
 
     search = new QLineEdit(panel);
-    search->setPlaceholderText(tr("Search\xe2\x80\xa6")); // \xe2\x80\xa6 = UTF-8 for "…" (ellipsis)
+    // \xe2\x80\xa6 = UTF-8 for "…" (ellipsis)
+    search->setPlaceholderText(tr("Search\xe2\x80\xa6  (Ctrl+Shift+F)"));
     search->setClearButtonEnabled(true);
     connect(search, &QLineEdit::textChanged, model, &ChatListModel::setFilter);
     layout->addWidget(search);
@@ -171,6 +174,7 @@ QWidget *MainWindow::buildLeftPanel() {
     bottom->addStretch(1);
 
     auto *settingsBtn = new QPushButton(tr("\xe2\x9a\x99"), panel); // \xe2\x9a\x99 = UTF-8 for "⚙" (gear)
+    settingsBtn->setToolTip(tr("Settings \xe2\x80\x94 Ctrl+Shift+P")); // "—" (em dash)
     settingsBtn->setFlat(true);
     settingsBtn->setFixedWidth(32);
     connect(settingsBtn, &QPushButton::clicked, this, &MainWindow::openSettings);
@@ -214,6 +218,129 @@ void MainWindow::buildNewMenu(QPushButton *button) {
     menu->addSeparator();
     add(tr("Adopt sessions\xe2\x80\xa6"), "Ctrl+Shift+A", &MainWindow::openAdopt);
     button->setMenu(menu);
+}
+
+void MainWindow::addChord(const char *chord, const char *what,
+                          void (MainWindow::*slot)()) {
+    auto *action = new QAction(tr(what), this);
+    action->setShortcut(QKeySequence(QLatin1String(chord)));
+    connect(action, &QAction::triggered, this, slot);
+    addAction(action);
+}
+
+// Window-wide chords. Ctrl+Shift only (plus Ctrl+PgUp/PgDn) — plain Ctrl
+// keys must keep reaching the shells inside embedded terminals.
+void MainWindow::buildShortcuts() {
+    addChord("Ctrl+Shift+Return", "Resume / beam / connect", &MainWindow::actOnCurrent);
+    addChord("Ctrl+Shift+F", "Search chats", &MainWindow::focusSearch);
+    addChord("Ctrl+PgDown", "Next chat", &MainWindow::nextChat);
+    addChord("Ctrl+PgUp", "Previous chat", &MainWindow::prevChat);
+    addChord("Ctrl+Shift+R", "Rename chat", &MainWindow::renameCurrent);
+    addChord("Ctrl+Shift+E", "Archive chat", &MainWindow::archiveToggleCurrent);
+    addChord("Ctrl+Shift+D", "Float chat", &MainWindow::floatToggleCurrent);
+    addChord("Ctrl+Shift+O", "Pop out to Konsole", &MainWindow::popOutCurrent);
+    addChord("Ctrl+Shift+W", "Close embedded pane", &MainWindow::closePaneCurrent);
+    addChord("Ctrl+Shift+P", "Settings", &MainWindow::openSettings);
+    addChord("Ctrl+Shift+/", "Keyboard shortcuts", &MainWindow::openShortcuts);
+}
+
+void MainWindow::actOnCurrent() {
+    if (currentID.isEmpty())
+        return;
+
+    TerminalPane *pane = panes.value(currentID);
+
+    if (pane) { // already running here — just focus it
+        ChatView *view = views.value(currentID);
+        FloatWindow *w = view ? floatOf(view) : 0;
+
+        if (w)
+            w->focusView(view);
+
+        pane->setFocus();
+        return;
+    }
+
+    const Chat *c = store.find(currentID);
+
+    if (!c)
+        return;
+
+    if (registry.entryForSession(c->claudeSessionID))
+        pullInLive(currentID); // running outside — beam it in
+    else
+        launchChat(currentID);
+}
+
+void MainWindow::renameCurrent() {
+    if (!currentID.isEmpty())
+        renameChat(currentID);
+}
+
+void MainWindow::archiveToggleCurrent() {
+    const Chat *c = currentID.isEmpty() ? 0 : store.find(currentID);
+
+    if (c)
+        archiveChat(currentID, !c->archived);
+}
+
+void MainWindow::floatToggleCurrent() {
+    if (currentID.isEmpty())
+        return;
+
+    ChatView *view = viewFor(currentID);
+    FloatWindow *w = floatOf(view);
+
+    if (w)
+        returnToMain(w, view);
+    else
+        floatChat(currentID, 0);
+}
+
+void MainWindow::popOutCurrent() {
+    if (!currentID.isEmpty())
+        popOut(currentID);
+}
+
+void MainWindow::closePaneCurrent() {
+    TerminalPane *pane = currentID.isEmpty() ? 0 : panes.value(currentID);
+
+    if (!pane)
+        return;
+
+    if (pane->shellPID() > 0)
+        kill(pane->shellPID(), SIGHUP);
+
+    onPaneTerminated(currentID);
+}
+
+void MainWindow::stepChat(int delta) {
+    const int count = model->rowCount();
+
+    if (!count)
+        return;
+
+    int row = list->currentIndex().isValid() ? list->currentIndex().row() + delta : 0;
+    row = qBound(0, row, count - 1);
+    list->setCurrentIndex(model->index(row, 0));
+}
+
+void MainWindow::nextChat() {
+    stepChat(1);
+}
+
+void MainWindow::prevChat() {
+    stepChat(-1);
+}
+
+void MainWindow::focusSearch() {
+    search->setFocus();
+    search->selectAll();
+}
+
+void MainWindow::openShortcuts() {
+    ShortcutsDialog dialog(this);
+    dialog.exec();
 }
 
 void MainWindow::updateArchivedButton() {
@@ -662,12 +789,18 @@ void MainWindow::showContextMenu(const QPoint &pos) {
     if (!c)
         return;
 
+    const auto chord = [](QAction *action, const char *keys) {
+        action->setShortcut(QKeySequence(QLatin1String(keys)));
+        action->setShortcutContext(Qt::WidgetShortcut); // display only — window action fires
+    };
     QMenu menu(this);
-    menu.addAction(tr("Rename\xe2\x80\xa6"), this, [this, id] { renameChat(id); });
+    chord(menu.addAction(tr("Rename\xe2\x80\xa6"), this, [this, id] { renameChat(id); }),
+          "Ctrl+Shift+R");
     menu.addAction(tr("Edit resume command\xe2\x80\xa6"), this, [this, id] { editCommand(id); });
     menu.addSeparator();
     buildFloatMenu(&menu, id);
-    menu.addAction(tr("Pop out to Konsole"), this, [this, id] { popOut(id); });
+    chord(menu.addAction(tr("Pop out to Konsole"), this, [this, id] { popOut(id); }),
+          "Ctrl+Shift+O");
 
     const auto live = registry.entryForSession(c->claudeSessionID);
 
@@ -684,8 +817,9 @@ void MainWindow::showContextMenu(const QPoint &pos) {
                        [this, id] { scanRemote(id); });
 
     menu.addSeparator();
-    menu.addAction(c->archived ? tr("Unarchive") : tr("Archive"), this,
-                   [this, id, on = !c->archived] { archiveChat(id, on); });
+    chord(menu.addAction(c->archived ? tr("Unarchive") : tr("Archive"), this,
+                         [this, id, on = !c->archived] { archiveChat(id, on); }),
+          "Ctrl+Shift+E");
     menu.addAction(tr("Delete\xe2\x80\xa6"), this, [this, id] { deleteChat(id); });
     menu.exec(list->viewport()->mapToGlobal(pos));
 }

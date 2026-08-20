@@ -102,6 +102,14 @@ Differences to know about:
   its own window. The store stays consistent — it's multi-process safe.
 - "Raise external window" is not wired to Terminal.app yet.
 
+## Keyboard
+
+Everything lives on `Ctrl+Shift` chords so plain Ctrl keys reach the embedded
+shells. `Ctrl+Shift+/` shows the full overlay in-app. Highlights:
+`Ctrl+Shift+Return` resume/beam/connect the selected chat, `Ctrl+PgUp/PgDn`
+walk chats, `Ctrl+Shift+F` search, `Ctrl+Shift+E` archive, `Ctrl+Shift+D`
+float out / pull back, `Ctrl+Shift+N/T/S` new claude/terminal/ssh.
+
 ## CLI
 
 ```sh
