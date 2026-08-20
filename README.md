@@ -57,11 +57,13 @@ linked. Flatpak/AppImage are deliberately absent: Rezoom leans on the host's
 Konsole/KF6. Without KDE's `konsole-kpart` (e.g. macOS) it builds and runs with
 external terminal windows instead of embedded panes.
 
-Optional extras: `reptyr` for live pull-in
+Optional extras (Linux): `reptyr` for live pull-in
 (`sudo setcap cap_sys_ptrace+ep $(which reptyr)` to allow it under Yama),
 `tmux` for persistent plain terminals.
 
 ## Build from source
+
+Linux:
 
 ```sh
 sudo apt install qt6-base-dev libkf6parts-dev libkf6service-dev \
@@ -70,6 +72,35 @@ cmake -B build -G Ninja
 ninja -C build
 build/rezoom
 ```
+
+macOS:
+
+```sh
+brew install cmake ninja qt jq
+cmake -B build -G Ninja -DCMAKE_PREFIX_PATH="$(brew --prefix)"
+ninja -C build
+build/rezoom
+```
+
+### Using it on macOS
+
+KF6/Konsole is KDE-only, so macOS builds have no embedded terminals: opening a
+chat launches it in a Terminal.app window instead (same for `rezoom-cli
+resume`). Presence tracking, auto-adopt, auto-resume, transcripts, archive,
+templates and the store all work the same — Claude Code maintains the same
+`~/.claude/sessions/` registry on macOS.
+
+Differences to know about:
+
+- **Freeze detection** needs the Notification hook wired by hand: put
+  `dist/rezoom-notify-hook.sh` somewhere in `$PATH` (it needs `jq`) and add it
+  under `hooks.Notification` in `~/.claude/settings.json` as shown in the
+  script's header comment.
+- **Live pull-in (reptyr) is Linux-only** — reptyr does not support macOS.
+  External sessions are managed by launch/relaunch instead.
+- **Single instance is inactive** (no session DBus); each `rezoom` launch is
+  its own window. The store stays consistent — it's multi-process safe.
+- "Raise external window" is not wired to Terminal.app yet.
 
 ## CLI
 
