@@ -5,6 +5,7 @@
 #include "core/liveregistry.h"
 #include "core/notifications.h"
 #include "core/sessionstore.h"
+#include "core/templates.h"
 
 #include "chatlistmodel.h"
 
@@ -44,14 +45,59 @@ static QString statusPreview(const QString &status, const QString &fallback) {
 }
 
 ChatListModel::ChatListModel(SessionStore *store, LiveRegistry *registry,
-                             NotificationWatcher *notifications, QObject *parent)
+                             NotificationWatcher *notifications, Templates *templates,
+                             QObject *parent)
     : QAbstractListModel(parent), store(store), registry(registry),
-      notifications(notifications) {
+      notifications(notifications), templates(templates) {
 
     connect(store, &SessionStore::changed, this, &ChatListModel::rebuild);
     connect(registry, &LiveRegistry::updated, this, &ChatListModel::rebuild);
     connect(notifications, &NotificationWatcher::updated, this, &ChatListModel::rebuild);
     rebuild();
+}
+
+// Rich hover card: identity, claude's own name when it differs, where it
+// lives, how it comes back, and when it last moved.
+QString ChatListModel::tooltipFor(const Chat &c, const Row &row) const {
+    const auto live = registry->entryForSession(c.claudeSessionID);
+    QStringList lines;
+    lines << QStringLiteral("<b>%1</b>").arg(row.title.toHtmlEscaped());
+
+    if (live && !live->name.isEmpty() && live->name != row.title && live->name != c.title)
+        lines << tr("claude calls it: %1").arg(live->name.toHtmlEscaped());
+
+    lines << QStringLiteral("%1 \xc2\xb7 %2").arg(c.kind, row.status); // \xc2\xb7 = "·"
+
+    if (!c.cwd.isEmpty())
+        lines << c.cwd.toHtmlEscaped();
+
+    if (!c.host.isEmpty())
+        lines << tr("host: %1").arg(c.host.toHtmlEscaped());
+
+    if (!c.entryCommand.isEmpty())
+        lines << tr("entry: <code>%1</code>").arg(c.entryCommand.toHtmlEscaped());
+
+    if (!c.tmuxSession.isEmpty())
+        lines << tr("tmux: %1").arg(c.tmuxSession.toHtmlEscaped());
+
+    if (!c.claudeSessionID.isEmpty())
+        lines << tr("session: <code>%1</code>").arg(c.claudeSessionID);
+
+    const QString resume = templates->resolveFor(c);
+
+    if (!resume.isEmpty())
+        lines << tr("resume: <code>%1</code>").arg(resume.toHtmlEscaped());
+
+    if (c.lastActiveAt)
+        lines << tr("last active: %1")
+                     .arg(QDateTime::fromMSecsSinceEpoch(c.lastActiveAt)
+                              .toString("yyyy-MM-dd HH:mm"));
+
+    if (const auto fr = notifications->freezeFor(c.claudeSessionID))
+        lines << QStringLiteral("<span style='color:#d64545'>%1</span>")
+                     .arg(fr->message.toHtmlEscaped());
+
+    return lines.join(QStringLiteral("<br>"));
 }
 
 // Everything about one list row except sort keys and time text.
@@ -91,6 +137,8 @@ ChatListModel::Row ChatListModel::makeRow(const Chat &c, const QString &status) 
                   .arg(QDateTime::fromMSecsSinceEpoch(fr->resetAtMs).toString("HH:mm"))
             : QString::fromUtf8("\xe2\x9b\x94 frozen \xe2\x80\x94 %1").arg(fr->message.left(60));
     }
+
+    row.tooltip = tooltipFor(c, row);
 
     return row;
 }

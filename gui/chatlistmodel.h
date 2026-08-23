@@ -7,6 +7,7 @@ struct Chat;
 class SessionStore;
 class LiveRegistry;
 class NotificationWatcher;
+class Templates;
 
 // Left-panel list: chats joined with live presence, filtered and sorted
 // WhatsApp-style (running first, then most recently active).
@@ -26,7 +27,8 @@ public:
     };
 
     ChatListModel(SessionStore *store, LiveRegistry *registry,
-                  NotificationWatcher *notifications, QObject *parent = 0);
+                  NotificationWatcher *notifications, Templates *templates,
+                  QObject *parent = 0);
 
     int rowCount(const QModelIndex &parent = QModelIndex()) const override;
     QVariant data(const QModelIndex &index, int role) const override;
@@ -59,11 +61,13 @@ private:
     };
 
     Row makeRow(const Chat &c, const QString &status) const;
+    QString tooltipFor(const Chat &c, const Row &row) const;
     bool matchesFilter(const Chat &c) const;
 
     SessionStore *store = 0;
     LiveRegistry *registry = 0;
     NotificationWatcher *notifications = 0;
+    Templates *templates = 0;
     QList<Row> rows;
     QString filter;
     QSet<QString> unreadIDs;

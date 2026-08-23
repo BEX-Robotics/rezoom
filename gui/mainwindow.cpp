@@ -81,7 +81,7 @@ MainWindow::MainWindow() {
     setWindowTitle(QStringLiteral("Rezoom"));
     resize(1200, 760);
 
-    model = new ChatListModel(&store, &registry, &notifications, this);
+    model = new ChatListModel(&store, &registry, &notifications, &templates, this);
 
     splitter = new QSplitter(this);
     splitter->addWidget(buildLeftPanel());
