@@ -34,6 +34,7 @@
 #include "core/codexindex.h"
 #include "core/externalterminal.h"
 #include "core/processscout.h"
+#include "core/reptyr.h"
 #include "core/transcriptindex.h"
 
 #include "adoptdialog.h"
@@ -1054,8 +1055,9 @@ void MainWindow::showContextMenu(const QPoint &pos) {
         const int pid = live->pid;
         menu.addAction(tr("Go to its window"), this, [this, pid] { raiseExternal(pid); });
 
-        // \xe2\xa4\xb5 = UTF-8 for "⤵"
-        menu.addAction(tr("\xe2\xa4\xb5 Beam it in"), this, [this, id] { pullInLive(id); });
+        // \xe2\xa4\xb5 = UTF-8 for "⤵" — reptyr-only, hidden where it can't run
+        if (Reptyr::supported())
+            menu.addAction(tr("\xe2\xa4\xb5 Beam it in"), this, [this, id] { pullInLive(id); });
     }
 
     if (c->kind == "ssh")
@@ -1176,10 +1178,16 @@ void MainWindow::pullInLive(const QString &chatID) {
     if (!live)
         return;
 
-    if (QStandardPaths::findExecutable(QStringLiteral("reptyr")).isEmpty()) {
-        offerPullRecovery(chatID, live->pid,
-                          tr("Live pull needs reptyr, which is not installed."),
-                          QStringLiteral("apt-get install -y reptyr"));
+    // Preflight: never attempt a move that can't succeed — no mystery
+    // failures. A red preflight (or the feature off) goes straight to
+    // recovery with the exact fix command.
+    const Reptyr::Status rs = Reptyr::status();
+
+    if (!templates.liveMoves() || !rs.ready) {
+        const QString why = !templates.liveMoves()
+            ? tr("Live moves are turned off in Settings.")
+            : rs.reason;
+        offerPullRecovery(chatID, live->pid, why, templates.liveMoves() ? rs.fixCommand : QString());
         return;
     }
 
@@ -1201,8 +1209,7 @@ void MainWindow::verifyPull(const QString &chatID, int pid) {
     offerPullRecovery(chatID, pid,
                       tr("Live pull failed (reptyr's error is shown in the terminal). "
                          "Usual cause: ptrace is restricted."),
-                      QStringLiteral("setcap cap_sys_ptrace+ep %1")
-                          .arg(QStandardPaths::findExecutable(QStringLiteral("reptyr"))));
+                      Reptyr::status().fixCommand);
 }
 
 void MainWindow::closeAttemptPane(const QString &chatID) {
@@ -1330,9 +1337,22 @@ void MainWindow::popOut(const QString &chatID) {
 
     const int target = paneTargetPid(pane);
 
-    if (QStandardPaths::findExecutable(QStringLiteral("reptyr")).isEmpty()) {
-        popOutRecovery(chatID, tr("Live move needs reptyr, which is not installed."),
-                       QStringLiteral("apt-get install -y reptyr"));
+    // Preflight, same practice as beam-in: no attempt unless it can succeed.
+    // Unsupported (macOS) or off → plain external launch (kill-free reptyr
+    // isn't available, so this reopens without moving the live process).
+    const Reptyr::Status rs = Reptyr::status();
+
+    if (!Reptyr::supported() || !templates.liveMoves()) {
+        if (pane->shellPID() > 0)
+            kill(pane->shellPID(), SIGHUP);
+
+        onPaneTerminated(chatID);
+        launchInKonsole(cp->host.isEmpty() ? cp->cwd : QString(), templates.resolveFor(*cp));
+        return;
+    }
+
+    if (!rs.ready) {
+        popOutRecovery(chatID, rs.reason, rs.fixCommand);
         return;
     }
 
@@ -1352,12 +1372,11 @@ void MainWindow::verifyPopOut(const QString &chatID, int target, const QString &
         return;
     }
 
+    // \xe2\x80\x94 = UTF-8 for em dash
     popOutRecovery(chatID,
                    tr("Live move failed (reptyr's error is in the new Konsole window "
                       "\xe2\x80\x94 close it). Usual cause: ptrace is restricted."),
-                   // \xe2\x80\x94 = UTF-8 for em dash
-                   QStringLiteral("setcap cap_sys_ptrace+ep %1")
-                       .arg(QStandardPaths::findExecutable(QStringLiteral("reptyr"))));
+                   Reptyr::status().fixCommand);
 }
 
 void MainWindow::popOutRecovery(const QString &chatID, const QString &why,

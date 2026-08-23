@@ -38,6 +38,7 @@ add_library(rezoomcore STATIC
     core/processscout.cpp
     core/notifications.cpp
     core/codexindex.cpp
+    core/reptyr.cpp
     core/externalterminal.cpp)
 target_include_directories(rezoomcore PUBLIC ${CMAKE_SOURCE_DIR})
 target_link_libraries(rezoomcore PUBLIC Qt6::Core)

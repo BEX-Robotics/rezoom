@@ -154,6 +154,17 @@ void Templates::setAutoStart(bool v) {
                 .toUtf8());
 }
 
+bool Templates::liveMoves() const {
+    QSettings s = confFile();
+
+    return s.value("general/live_moves", true).toBool();
+}
+
+void Templates::setLiveMoves(bool v) {
+    QSettings s = confFile();
+    s.setValue("general/live_moves", v);
+}
+
 bool Templates::confirmClose() const {
     QSettings s = confFile();
 

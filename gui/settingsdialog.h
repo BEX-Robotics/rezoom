@@ -1,8 +1,11 @@
 #pragma once
 #include <QDialog>
 
+#include "core/reptyr.h"
+
 class QCheckBox;
 class QTableWidget;
+class QLabel;
 class QVBoxLayout;
 class Templates;
 
@@ -15,6 +18,7 @@ public:
 private:
     void accept() override;
     void addPrefChecks(QVBoxLayout *layout);
+    void addLiveMovesRow(QVBoxLayout *layout);
 
     Templates *templates = 0;
     QTableWidget *table = 0;
@@ -22,4 +26,5 @@ private:
     QCheckBox *autoAdopt = 0;
     QCheckBox *resumeOnStart = 0;
     QCheckBox *autoStart = 0;
+    QCheckBox *liveMoves = 0;
 };

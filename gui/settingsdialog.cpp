@@ -81,6 +81,31 @@ void SettingsDialog::addPrefChecks(QVBoxLayout *layout) {
     autoStart = new QCheckBox(tr("Start Rezoom at login"), this);
     autoStart->setChecked(templates->autoStart());
     layout->addWidget(autoStart);
+
+    addLiveMovesRow(layout);
+}
+
+// reptyr live-move toggle plus its readiness, with the copyable fix command
+// when it needs one. Hidden entirely where reptyr can't run (macOS).
+void SettingsDialog::addLiveMovesRow(QVBoxLayout *layout) {
+    if (!Reptyr::supported())
+        return;
+
+    liveMoves = new QCheckBox(tr("Move live sessions in/out with reptyr (no kill)"), this);
+    liveMoves->setChecked(templates->liveMoves());
+    layout->addWidget(liveMoves);
+
+    const Reptyr::Status st = Reptyr::status();
+    QString text = tr("reptyr: %1").arg(st.reason);
+
+    if (!st.fixCommand.isEmpty())
+        text += tr("  \xe2\x80\x94  fix: sudo %1").arg(st.fixCommand); // "—"
+
+    auto *status = new QLabel(text, this);
+    status->setEnabled(false);
+    status->setTextInteractionFlags(Qt::TextSelectableByMouse); // fix is copyable
+    status->setStyleSheet(st.ready ? "color: palette(placeholder-text);" : "color: #d64545;");
+    layout->addWidget(status);
 }
 
 void SettingsDialog::accept() {
@@ -99,5 +124,8 @@ void SettingsDialog::accept() {
     templates->setAutoAdopt(autoAdopt->isChecked());
     templates->setResumeOnStart(resumeOnStart->isChecked());
     templates->setAutoStart(autoStart->isChecked());
+
+    if (liveMoves)
+        templates->setLiveMoves(liveMoves->isChecked());
     QDialog::accept();
 }

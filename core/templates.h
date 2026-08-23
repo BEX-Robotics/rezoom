@@ -39,6 +39,9 @@ public:
     bool autoStart() const;
     void setAutoStart(bool v);
 
+    bool liveMoves() const; // reptyr beam-in / pop-out (Linux, when ready)
+    void setLiveMoves(bool v);
+
 private:
     void seedDefaults();
     void seedLater();

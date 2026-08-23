@@ -2,6 +2,8 @@
 #include <QPushButton>
 #include <QVBoxLayout>
 
+#include "core/reptyr.h"
+
 #include "resumepane.h"
 
 static QHBoxLayout *centered(QWidget *w, int stretch = 2) {
@@ -96,16 +98,22 @@ void ResumePane::setChat(const Chat &c, const QString &resolvedCommand, int pid)
     command->setText(resolvedCommand.isEmpty() ? tr("(plain shell)") : resolvedCommand);
 
     const bool external = pid > 0;
+    const bool canBeam = external && Reptyr::supported();
     raiseBtn->setVisible(external);
     launch->setEnabled(true);
-    beaming = external;
+    beaming = canBeam;
 
-    if (external) {
+    if (canBeam) {
         // \xe2\xa4\xb5 = UTF-8 for "⤵" (arrow pointing down then curving left)
         launch->setText(tr("\xe2\xa4\xb5  Beam it in"));
         note->setText(tr("Running outside Rezoom (pid %1) \xe2\x80\x94 beam it into an "
                          // \xe2\x80\x94 = UTF-8 for "—" (em dash)
                          "embedded pane, or go to its window.")
+                          .arg(pid));
+    } else if (external) {
+        // Session lives outside and we can't move it in here — offer the raise.
+        launch->setEnabled(false);
+        note->setText(tr("Running outside Rezoom (pid %1) \xe2\x80\x94 go to its window.")
                           .arg(pid));
     } else if (c.kind == "ssh") {
         launch->setText(tr("Connect: %1").arg(resolvedCommand.left(60)));
