@@ -26,6 +26,9 @@ struct Chat {
     static QString randomTint(const QString &seed);
     static QString tintColorHex(const QString &tint); // "#rrggbb" for the avatar
 
+    // "/home/pavel/dev/x" → "~/dev/x", for display only.
+    static QString tildify(const QString &path);
+
     QJsonObject toJson() const;
     static Chat fromJson(const QJsonObject &o);
     QString monogram() const; // 1-2 chars for the avatar circle

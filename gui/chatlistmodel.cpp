@@ -56,46 +56,94 @@ ChatListModel::ChatListModel(SessionStore *store, LiveRegistry *registry,
     rebuild();
 }
 
-// Rich hover card: identity, claude's own name when it differs, where it
-// lives, how it comes back, and when it last moved.
+static QString agoText(qint64 ms) {
+    const qint64 mins = (QDateTime::currentMSecsSinceEpoch() - ms) / 60000;
+
+    if (mins < 1)
+        return QObject::tr("just now");
+
+    if (mins < 60)
+        return QObject::tr("%n min ago", 0, mins);
+
+    if (mins < 48 * 60)
+        return QObject::tr("%n h ago", 0, mins / 60);
+
+    return QDateTime::fromMSecsSinceEpoch(ms).toString("MMM d");
+}
+
+// "80b34689\xe2\x80\xa6bbd51" — recognizable, never overflows ("…" = ellipsis).
+static QString shortSid(const QString &sid) {
+    return sid.size() > 16 ? sid.left(8) + QString::fromUtf8("\xe2\x80\xa6") + sid.right(5) : sid;
+}
+
+static QString statusLine(const QString &status) {
+    struct Entry {
+        const char *key;
+        const char *color;
+        const char *text;
+    };
+    static const Entry entries[] = {
+        {"busy", "#3fa34d", QT_TR_NOOP("working")},
+        {"live", "#3fa34d", QT_TR_NOOP("session open")},
+        {"idle", "#e6a817", QT_TR_NOOP("waiting for you")},
+        {"shell", "#3a7bd5", QT_TR_NOOP("at shell")},
+        {"frozen", "#d64545", QT_TR_NOOP("frozen")},
+    };
+
+    for (const Entry &e : entries)
+        if (status == QLatin1String(e.key))
+            // \xe2\x97\x8f = UTF-8 for "●" (filled circle)
+            return QStringLiteral("<span style='color:%1'>\xe2\x97\x8f</span> %2")
+                .arg(QLatin1String(e.color), QObject::tr(e.text));
+
+    // \xe2\x97\x8b = UTF-8 for "○" (hollow circle)
+    return QStringLiteral("\xe2\x97\x8b ") + QObject::tr("resumable");
+}
+
+static QString elide(const QString &s, int max) {
+    // \xe2\x80\xa6 = UTF-8 for "…" (ellipsis)
+    return s.size() > max ? s.left(max) + QString::fromUtf8("\xe2\x80\xa6") : s;
+}
+
+// Compact hover card: what it is, where it lives, how it comes back — and a
+// hint to the copy menu, since tooltips can't be copied from.
 QString ChatListModel::tooltipFor(const Chat &c, const Row &row) const {
-    const auto live = registry->entryForSession(c.claudeSessionID);
     QStringList lines;
-    lines << QStringLiteral("<b>%1</b>").arg(row.title.toHtmlEscaped());
+    lines << QStringLiteral("<b>%1</b>").arg(elide(row.title, 60).toHtmlEscaped());
+    QString meta = c.kind + QString::fromUtf8("  \xc2\xb7  ") + statusLine(row.status); // "·"
 
-    if (live && !live->name.isEmpty() && live->name != row.title && live->name != c.title)
-        lines << tr("claude calls it: %1").arg(live->name.toHtmlEscaped());
+    if (c.lastActiveAt)
+        meta += QString::fromUtf8("  \xc2\xb7  ") + agoText(c.lastActiveAt);
 
-    lines << QStringLiteral("%1 \xc2\xb7 %2").arg(c.kind, row.status); // \xc2\xb7 = "·"
+    lines << meta;
 
-    if (!c.cwd.isEmpty())
-        lines << c.cwd.toHtmlEscaped();
+    if (!c.cwd.isEmpty() || !c.host.isEmpty()) {
+        // \xf0\x9f\x93\x81 = UTF-8 for the folder emoji
+        QString where = QString::fromUtf8("\xf0\x9f\x93\x81 ")
+            + Chat::tildify(c.cwd).toHtmlEscaped();
 
-    if (!c.host.isEmpty())
-        lines << tr("host: %1").arg(c.host.toHtmlEscaped());
+        if (!c.host.isEmpty())
+            where += tr(" on %1").arg(c.host.toHtmlEscaped());
 
-    if (!c.entryCommand.isEmpty())
-        lines << tr("entry: <code>%1</code>").arg(c.entryCommand.toHtmlEscaped());
-
-    if (!c.tmuxSession.isEmpty())
-        lines << tr("tmux: %1").arg(c.tmuxSession.toHtmlEscaped());
+        lines << where;
+    }
 
     if (!c.claudeSessionID.isEmpty())
-        lines << tr("session: <code>%1</code>").arg(c.claudeSessionID);
+        lines << QStringLiteral("<code>%1</code>").arg(shortSid(c.claudeSessionID));
 
     const QString resume = templates->resolveFor(c);
 
     if (!resume.isEmpty())
-        lines << tr("resume: <code>%1</code>").arg(resume.toHtmlEscaped());
-
-    if (c.lastActiveAt)
-        lines << tr("last active: %1")
-                     .arg(QDateTime::fromMSecsSinceEpoch(c.lastActiveAt)
-                              .toString("yyyy-MM-dd HH:mm"));
+        // \xe2\x86\xa9 = UTF-8 for "↩" (return arrow)
+        lines << QString::fromUtf8("\xe2\x86\xa9 <code>%1</code>")
+                     .arg(elide(resume, 56).toHtmlEscaped());
 
     if (const auto fr = notifications->freezeFor(c.claudeSessionID))
         lines << QStringLiteral("<span style='color:#d64545'>%1</span>")
-                     .arg(fr->message.toHtmlEscaped());
+                     .arg(elide(fr->message, 70).toHtmlEscaped());
+
+    lines << QStringLiteral("<span style='color:gray'>%1</span>")
+                 .arg(tr("right-click to copy id / command"));
 
     return lines.join(QStringLiteral("<br>"));
 }

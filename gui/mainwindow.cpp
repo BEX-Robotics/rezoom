@@ -1024,6 +1024,23 @@ void MainWindow::buildFloatMenu(QMenu *menu, const QString &chatID) {
                         [this, chatID] { floatChat(chatID, 0); });
 }
 
+// The copy channel the hover card advertises — tooltips can't be copied from.
+void MainWindow::addCopyEntries(QMenu *menu, const Chat *c) {
+    if (!c->claudeSessionID.isEmpty()) {
+        const QString sid = c->claudeSessionID;
+        menu->addAction(tr("Copy session id"), this, [sid] {
+            QGuiApplication::clipboard()->setText(sid);
+        });
+    }
+
+    const QString resumeCmd = templates.resolveFor(*c);
+
+    if (!resumeCmd.isEmpty())
+        menu->addAction(tr("Copy resume command"), this, [resumeCmd] {
+            QGuiApplication::clipboard()->setText(resumeCmd);
+        });
+}
+
 void MainWindow::showContextMenu(const QPoint &pos) {
     const QModelIndex idx = list->indexAt(pos);
 
@@ -1044,6 +1061,7 @@ void MainWindow::showContextMenu(const QPoint &pos) {
     chord(menu.addAction(tr("Rename\xe2\x80\xa6"), this, [this, id] { renameChat(id); }),
           "Ctrl+Shift+R");
     menu.addAction(tr("Edit resume command\xe2\x80\xa6"), this, [this, id] { editCommand(id); });
+    addCopyEntries(&menu, c);
     menu.addSeparator();
     buildFloatMenu(&menu, id);
     chord(menu.addAction(tr("Pop out to Konsole"), this, [this, id] { popOut(id); }),

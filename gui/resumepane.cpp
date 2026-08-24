@@ -88,7 +88,7 @@ void ResumePane::setChat(const Chat &c, const QString &resolvedCommand, int pid)
     parts << c.kind;
 
     if (!c.cwd.isEmpty())
-        parts << c.cwd;
+        parts << Chat::tildify(c.cwd);
 
     if (!c.claudeSessionID.isEmpty())
         parts << c.claudeSessionID.left(8);

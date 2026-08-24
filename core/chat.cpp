@@ -1,4 +1,5 @@
 #include <QDateTime>
+#include <QDir>
 #include <QRegularExpression>
 #include <QUuid>
 
@@ -39,6 +40,18 @@ QString Chat::tintColorHex(const QString &tint) {
         return "#dd7f2b";
 
     return "#6b7680"; // tint-neutral / unknown
+}
+
+QString Chat::tildify(const QString &path) {
+    const QString home = QDir::homePath();
+
+    if (path == home)
+        return QStringLiteral("~");
+
+    if (path.startsWith(home + '/'))
+        return "~" + path.mid(home.size());
+
+    return path;
 }
 
 QJsonObject Chat::toJson() const {

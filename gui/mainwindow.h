@@ -74,6 +74,7 @@ private:
     void resumeWhenGone(const QString &chatID, int pid, int triesLeft);
     void selectChat(const QString &chatID);
     void showContextMenu(const QPoint &pos);
+    void addCopyEntries(QMenu *menu, const Chat *c);
     void renameChat(const QString &chatID);
     void editCommand(const QString &chatID);
     void archiveChat(const QString &chatID, bool on);
