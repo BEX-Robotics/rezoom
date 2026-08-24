@@ -1034,11 +1034,10 @@ void MainWindow::addCopyEntries(QMenu *menu, const Chat *c) {
     }
 
     const QString resumeCmd = templates.resolveFor(*c);
+    const auto copyCmd = [resumeCmd] { QGuiApplication::clipboard()->setText(resumeCmd); };
 
     if (!resumeCmd.isEmpty())
-        menu->addAction(tr("Copy resume command"), this, [resumeCmd] {
-            QGuiApplication::clipboard()->setText(resumeCmd);
-        });
+        menu->addAction(tr("Copy resume command"), this, copyCmd);
 }
 
 void MainWindow::showContextMenu(const QPoint &pos) {
