@@ -200,13 +200,12 @@ bool ChatListModel::matchesFilter(const Chat &c) const {
         || c.cwd.contains(filter, Qt::CaseInsensitive);
 }
 
-void ChatListModel::rebuild() {
-    beginResetModel();
-    rows.clear();
-
+// Order = persisted recency alone, WhatsApp-style: stable across restarts,
+// a chat moves only when something actually happened in it (launch, turn
+// finished) — never because presence flickered.
+QList<ChatListModel::Row> ChatListModel::buildRows() const {
     struct Sortable {
         Row row;
-        bool running = false;
         qint64 lastActive = 0;
     };
     QList<Sortable> tmp;
@@ -217,32 +216,51 @@ void ChatListModel::rebuild() {
 
         Sortable s = {};
         const auto live = registry->entryForSession(c.claudeSessionID);
-        s.running = live.has_value();
+        QString status = live ? live->status : QStringLiteral("off");
 
         // Codex & friends have no live registry — an open pane means "live".
-        QString status = s.running ? live->status : QStringLiteral("off");
-
-        if (!s.running && embeddedIDs.contains(c.id)) {
-            s.running = true;
+        if (!live && embeddedIDs.contains(c.id))
             status = QStringLiteral("live");
-        }
 
-        s.lastActive = qMax(live ? live->updatedAt : c.lastActiveAt, c.lastActiveAt);
+        s.lastActive = c.lastActiveAt;
         s.row = makeRow(c, status);
         s.row.timeText = relativeTime(s.lastActive);
         tmp.append(s);
     }
 
-    std::sort(tmp.begin(), tmp.end(), [](const Sortable &a, const Sortable &b) {
-        if (a.running != b.running)
-            return a.running;
-
+    std::stable_sort(tmp.begin(), tmp.end(), [](const Sortable &a, const Sortable &b) {
         return a.lastActive > b.lastActive;
     });
 
-    for (const Sortable &s : tmp)
-        rows.append(s.row);
+    QList<Row> out;
 
+    for (const Sortable &s : tmp)
+        out.append(s.row);
+
+    return out;
+}
+
+// Same row set in the same order → in-place dataChanged (no reset, no
+// flicker, selection survives). Structure changed → full reset.
+void ChatListModel::rebuild() {
+    QList<Row> fresh = buildRows();
+    bool sameShape = fresh.size() == rows.size();
+
+    for (int i = 0; sameShape && i < fresh.size(); ++i)
+        if (fresh[i].id != rows[i].id)
+            sameShape = false;
+
+    if (sameShape) {
+        rows = fresh;
+
+        if (!rows.isEmpty())
+            emit dataChanged(index(0, 0), index(rows.size() - 1, 0));
+
+        return;
+    }
+
+    beginResetModel();
+    rows = fresh;
     endResetModel();
 }
 

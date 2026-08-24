@@ -61,6 +61,7 @@ private:
     };
 
     Row makeRow(const Chat &c, const QString &status) const;
+    QList<Row> buildRows() const;
     QString tooltipFor(const Chat &c, const Row &row) const;
     bool matchesFilter(const Chat &c) const;
 

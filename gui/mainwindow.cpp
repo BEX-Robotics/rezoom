@@ -4,6 +4,7 @@
 
 #include <QClipboard>
 #include <QCloseEvent>
+#include <QDateTime>
 #include <QDir>
 #include <QFile>
 #include <QFileDialog>
@@ -188,10 +189,13 @@ void MainWindow::preTrustCwds(const QStringList &cwds) {
     for (const QString &cwd : cwds) {
         QJsonObject p = projects[cwd].toObject();
 
-        if (p["hasTrustDialogAccepted"].toBool())
+        if (p["hasTrustDialogAccepted"].toBool() && p["hasCompletedProjectOnboarding"].toBool())
             continue;
 
+        // Claude's own concurrent whole-file writes lose accepted answers
+        // (25 sessions, last writer wins) — re-assert both flags.
         p["hasTrustDialogAccepted"] = true;
+        p["hasCompletedProjectOnboarding"] = true;
         projects[cwd] = p;
         changed = true;
     }
@@ -216,10 +220,11 @@ void MainWindow::resumePrevious() {
     const QStringList ids = s.value("ui/runningChats").toStringList();
     QStringList cwds;
 
-    for (const QString &id : ids)
-        if (const Chat *c = store.find(id); c && c->kind == "claude" && c->host.isEmpty())
-            cwds << c->cwd;
+    for (const Chat &c : store.chats())
+        if (c.kind == "claude" && c.host.isEmpty() && !c.cwd.isEmpty() && !c.archived)
+            cwds << c.cwd;
 
+    cwds.removeDuplicates();
     preTrustCwds(cwds);
     int slot = 0;
 
@@ -749,6 +754,8 @@ void MainWindow::scanChatDelta(const Chat &c, RegistryDeltas &d) {
 
         if (!last.isEmpty() && last != c.preview)
             d.previews.insert(c.id, last);
+        else
+            d.previews.insert(c.id, c.preview); // still bump recency below
 
         if (c.id != currentID) {
             unread.insert(c.id);
@@ -778,9 +785,13 @@ void MainWindow::onRegistryUpdated() {
 
     if (!freshPreviews.isEmpty() || !freshTitles.isEmpty())
         store.mutate([&freshPreviews, &freshTitles](QList<Chat> &list) {
+            const qint64 now = QDateTime::currentMSecsSinceEpoch();
+
             for (Chat &c : list) {
-                if (freshPreviews.contains(c.id))
+                if (freshPreviews.contains(c.id)) {
                     c.preview = freshPreviews.value(c.id);
+                    c.lastActiveAt = now; // a finished turn moves the chat up
+                }
 
                 if (freshTitles.contains(c.id))
                     c.title = freshTitles.value(c.id);
