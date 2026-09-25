@@ -8,11 +8,11 @@
 #include <QJsonObject>
 
 #include "liveregistry.h"
+#include "processscout.h"
 
 // $REZOOM_CLAUDE_DIR overrides ~/.claude for tests and staged demos.
 static QString claudeDir() {
     const QString override = qEnvironmentVariable("REZOOM_CLAUDE_DIR");
-
     return override.isEmpty() ? QDir::homePath() + "/.claude" : override;
 }
 
@@ -33,6 +33,17 @@ LiveRegistry::LiveRegistry(QObject *parent) : QObject(parent) {
     connect(&timer, &QTimer::timeout, this, &LiveRegistry::rescan);
     timer.start(2000);
     rescan();
+}
+
+bool autoAdoptable(const LiveEntry &e) {
+    if (e.kind != QLatin1String("interactive"))
+        return false;
+
+    for (const char *scratch : {"/tmp/", "/var/tmp/", "/run/", "/dev/"})
+        if (e.cwd.startsWith(QLatin1String(scratch)))
+            return false;
+
+    return !ProcessScout::hasAncestorComm(e.pid, QStringLiteral("claude"));
 }
 
 bool LiveRegistry::pidAlive(int pid) {

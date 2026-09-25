@@ -34,6 +34,11 @@ QList<ProcInfo> runningSsh();
 // Best-effort ssh destination from a client cmdline ("user@host" or "host").
 QString sshDestination(const QStringList &cmdline);
 
+// Nearest ancestor whose comm matches (0 = none) — e.g. the konsole window
+// hosting a claude, or detecting tool-spawned claude-under-claude.
+int ancestorPidOfComm(int pid, const QString &comm);
+bool hasAncestorComm(int pid, const QString &comm);
+
 // The pty a process reads from (/proc/<pid>/fd/0 target) — empty on macOS.
 // Comparing before/after tells whether a reptyr move actually happened.
 QString tty(int pid);

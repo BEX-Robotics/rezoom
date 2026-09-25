@@ -17,6 +17,7 @@
 //   list                     chats + live presence (TSV)
 //   resume <query> [--print] resume a chat in a terminal window (or print the command)
 //   adopt-running            adopt every untracked running claude session
+//   prune                    drop dead chats stranded in scratch dirs (/tmp)
 
 static int cmdList(SessionStore &store, LiveRegistry &registry) {
     for (const Chat &c : store.chats()) {
@@ -32,7 +33,6 @@ static int cmdList(SessionStore &store, LiveRegistry &registry) {
 
 static int cmdResume(SessionStore &store, LiveRegistry &registry, Templates &templates,
                      const QString &query, bool printOnly) {
-
     QList<const Chat *> hits;
 
     for (const Chat &c : store.chats())
@@ -71,7 +71,6 @@ static int cmdResume(SessionStore &store, LiveRegistry &registry, Templates &tem
 
     ExternalTerminal::launch((!c->cwd.isEmpty() && c->host.isEmpty()) ? c->cwd : QString(),
                              command);
-
     return 0;
 }
 
@@ -85,7 +84,7 @@ static int cmdAdoptRunning(SessionStore &store, LiveRegistry &registry) {
             const bool tracked = std::any_of(list.cbegin(), list.cend(),
                 [&e](const Chat &c) { return c.claudeSessionID == e.sessionID; });
 
-            if (tracked)
+            if (tracked || !autoAdoptable(e))
                 continue;
 
             Chat c = Chat::create("claude");
@@ -106,7 +105,21 @@ static int cmdAdoptRunning(SessionStore &store, LiveRegistry &registry) {
     });
 
     printf("adopted %d running session(s)\n", adopted);
+    return 0;
+}
 
+// Drop dead chats living in scratch dirs — tool-spawned claudes (commit
+// reviewers etc.) that were adopted before the eligibility filter existed.
+static int cmdPrune(SessionStore &store, LiveRegistry &registry) {
+    qsizetype removed = 0;
+    store.mutate([&registry, &removed](QList<Chat> &list) {
+        removed = list.removeIf([&registry](const Chat &c) {
+            const bool scratch = c.cwd.startsWith("/tmp/") || c.cwd.startsWith("/var/tmp/")
+                || c.cwd.startsWith("/run/");
+            return scratch && !registry.entryForSession(c.claudeSessionID);
+        });
+    });
+    printf("pruned %d scratch-dir chat(s)\n", (int)removed);
     return 0;
 }
 
@@ -132,10 +145,12 @@ int main(int argc, char **argv) {
     if (cmd == "resume" && args.size() >= 3)
         return cmdResume(store, registry, templates, args[2], args.contains("--print"));
 
+    if (cmd == "prune")
+        return cmdPrune(store, registry);
+
     if (cmd == "adopt-running")
         return cmdAdoptRunning(store, registry);
 
-    fprintf(stderr, "usage: rezoom-cli [list | resume <query> [--print] | adopt-running]\n");
-
+    fprintf(stderr, "usage: rezoom-cli [list | resume <query> [--print] | adopt-running | prune]\n");
     return 64;
 }

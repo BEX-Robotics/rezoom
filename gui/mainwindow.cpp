@@ -43,6 +43,7 @@
 #include "chatlistmodel.h"
 #include "chatview.h"
 #include "floatwindow.h"
+#include "konsoletitles.h"
 #include "mainwindow.h"
 #include "resumepane.h"
 #include "settingsdialog.h"
@@ -67,7 +68,6 @@ static QString getTextSelectable(QWidget *parent, const QString &title,
         l->setTextInteractionFlags(Qt::TextSelectableByMouse);
 
     *ok = dialog.exec() == QDialog::Accepted;
-
     return dialog.textValue();
 }
 
@@ -75,7 +75,6 @@ static bool askSelectable(QWidget *parent, const QString &title, const QString &
     QMessageBox box(QMessageBox::Question, title, text,
                     QMessageBox::Yes | QMessageBox::No, parent);
     box.setTextInteractionFlags(Qt::TextSelectableByMouse);
-
     return box.exec() == QMessageBox::Yes;
 }
 
@@ -554,7 +553,7 @@ void MainWindow::wirePane(TerminalPane *pane) {
                 else
                     liveTitles.insert(id, caption);
 
-                model->setLiveTitles(liveTitles);
+                pushLiveTitles();
             });
 }
 
@@ -616,7 +615,7 @@ void MainWindow::onPaneTerminated(const QString &chatID) {
     model->setEmbedded(QSet<QString>(panes.keyBegin(), panes.keyEnd()));
 
     if (liveTitles.remove(chatID))
-        model->setLiveTitles(liveTitles);
+        pushLiveTitles();
     ChatView *view = views.value(chatID);
 
     if (view)
@@ -815,8 +814,47 @@ void MainWindow::onRegistryUpdated() {
             notifications.clear(sid);
     }
 
+    refreshExternalTitles();
     autoAdoptNew();
     updateAttention();
+}
+
+// Mirror each external session's Konsole window title (claude's activity
+// line — the only name the user has actually seen) as the chat's live title.
+void MainWindow::refreshExternalTitles() {
+    const QHash<int, QString> titles = KonsoleTitles::byKonsolePid();
+    QHash<QString, QString> fresh;
+
+    for (const Chat &c : store.chats()) {
+        if (panes.contains(c.id) || c.claudeSessionID.isEmpty())
+            continue;
+
+        const auto live = registry.entryForSession(c.claudeSessionID);
+
+        if (!live)
+            continue;
+
+        const int kpid = ProcessScout::ancestorPidOfComm(live->pid, QStringLiteral("konsole"));
+        const QString t = KonsoleTitles::stripStatusGlyph(titles.value(kpid));
+
+        if (!t.isEmpty())
+            fresh.insert(c.id, t);
+    }
+
+    if (fresh == extTitles)
+        return;
+
+    extTitles = fresh;
+    pushLiveTitles();
+}
+
+void MainWindow::pushLiveTitles() {
+    QHash<QString, QString> merged = extTitles;
+
+    for (auto it = liveTitles.constBegin(); it != liveTitles.constEnd(); ++it)
+        merged.insert(it.key(), it.value()); // embedded captions win
+
+    model->setLiveTitles(merged);
 }
 
 // "(2) Rezoom — 3 working · 5 waiting · 1 frozen": the parenthesized count
@@ -891,7 +929,7 @@ void MainWindow::autoAdoptNew() {
     QList<LiveEntry> fresh;
 
     for (const LiveEntry &e : registry.bySessionID())
-        if (e.kind == "interactive" && !embedded.contains(e.pid)
+        if (autoAdoptable(e) && !embedded.contains(e.pid)
             && !store.findByClaudeSession(e.sessionID))
             fresh.append(e);
 
@@ -1343,7 +1381,6 @@ void MainWindow::resumeWhenGone(const QString &chatID, int pid, int triesLeft) {
 int MainWindow::paneTargetPid(TerminalPane *pane) const {
     const auto procs =
         ProcessScout::findDescendants(pane->shellPID(), {"claude", "codex", "ssh"});
-
     return procs.isEmpty() ? pane->shellPID() : procs.first().pid;
 }
 

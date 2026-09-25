@@ -49,7 +49,6 @@ ChatListModel::ChatListModel(SessionStore *store, LiveRegistry *registry,
                              QObject *parent)
     : QAbstractListModel(parent), store(store), registry(registry),
       notifications(notifications), templates(templates) {
-
     connect(store, &SessionStore::changed, this, &ChatListModel::rebuild);
     connect(registry, &LiveRegistry::updated, this, &ChatListModel::rebuild);
     connect(notifications, &NotificationWatcher::updated, this, &ChatListModel::rebuild);
@@ -144,7 +143,6 @@ QString ChatListModel::tooltipFor(const Chat &c, const Row &row) const {
 
     lines << QStringLiteral("<span style='color:gray'>%1</span>")
                  .arg(tr("right-click to copy id / command"));
-
     return lines.join(QStringLiteral("<br>"));
 }
 
@@ -187,7 +185,6 @@ ChatListModel::Row ChatListModel::makeRow(const Chat &c, const QString &status) 
     }
 
     row.tooltip = tooltipFor(c, row);
-
     return row;
 }
 
@@ -196,6 +193,7 @@ bool ChatListModel::matchesFilter(const Chat &c) const {
         return true;
 
     return c.title.contains(filter, Qt::CaseInsensitive)
+        || liveTitles.value(c.id).contains(filter, Qt::CaseInsensitive)
         || c.preview.contains(filter, Qt::CaseInsensitive)
         || c.cwd.contains(filter, Qt::CaseInsensitive);
 }

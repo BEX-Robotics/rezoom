@@ -23,6 +23,11 @@ struct LiveEntry {
 // Watches ~/.claude/sessions/ — the exact live-session registry claude
 // maintains (pid, sessionId, cwd, live status). Entries with dead pids
 // are ignored and pruned on the fly.
+// Worth turning into a chat automatically? Interactive, not living in a
+// scratch dir (/tmp claude = tooling like commit reviewers, never a
+// conversation), and not spawned by another claude.
+bool autoAdoptable(const LiveEntry &e);
+
 class LiveRegistry : public QObject {
     Q_OBJECT
 public:

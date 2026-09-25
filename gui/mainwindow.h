@@ -103,6 +103,8 @@ private:
     void openShortcuts();
     void scanChatDelta(const Chat &c, RegistryDeltas &d);
     void wirePane(TerminalPane *pane);
+    void refreshExternalTitles();
+    void pushLiveTitles();
     void updateAttention(); // window title + taskbar badge
     void updateArchivedButton();
     void autoAdoptNew();
@@ -131,7 +133,8 @@ private:
     QList<FloatWindow *> floats;
     QSet<QString> unread;
     QHash<QString, QString> lastStatus;   // chatID → last seen live status
-    QHash<QString, QString> liveTitles;   // chatID → konsole caption (display only)
+    QHash<QString, QString> liveTitles;   // chatID → embedded pane caption (display only)
+    QHash<QString, QString> extTitles;    // chatID → external konsole window title
     QHash<QString, QString> livePreviews; // chatID → busy transcript tail (display only)
     QString currentID;
     bool shuttingDown = false;

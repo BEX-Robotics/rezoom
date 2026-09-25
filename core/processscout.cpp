@@ -35,7 +35,6 @@ static std::vector<kinfo_proc> allProcs() {
         return {};
 
     procs.resize(size / sizeof(kinfo_proc));
-
     return procs;
 }
 
@@ -130,10 +129,48 @@ QList<int> children(int pid) {
 
 #endif
 
+#ifdef Q_OS_MACOS
+
+int ancestorPidOfComm(int pid, const QString &) {
+    Q_UNUSED(pid);
+    return 0; // konsole/claude-spawn ancestry is a Linux concern
+}
+
+#else
+
+int ancestorPidOfComm(int pid, const QString &wanted) {
+    for (int depth = 0; depth < 20; ++depth) {
+        QFile f(QStringLiteral("/proc/%1/stat").arg(pid));
+
+        if (!f.open(QIODevice::ReadOnly))
+            return 0;
+
+        // comm may contain spaces: ppid is the 2nd field after the ')'.
+        const QString stat = QString::fromUtf8(f.readAll());
+        const QStringList after = stat.mid(stat.lastIndexOf(')') + 1).split(' ', Qt::SkipEmptyParts);
+        const int ppid = after.value(1).toInt();
+
+        if (ppid <= 1)
+            return 0;
+
+        if (comm(ppid) == wanted)
+            return ppid;
+
+        pid = ppid;
+    }
+
+    return 0;
+}
+
+#endif
+
+bool hasAncestorComm(int pid, const QString &wanted) {
+    return ancestorPidOfComm(pid, wanted) > 0;
+}
+
 QString tty(int pid) {
 #ifdef Q_OS_MACOS
     Q_UNUSED(pid);
-
     return {};
 #else
     return QFile::symLinkTarget(QStringLiteral("/proc/%1/fd/0").arg(pid));
