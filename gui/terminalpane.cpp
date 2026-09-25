@@ -11,7 +11,6 @@
 
 TerminalPane::TerminalPane(const QString &chatID, const QString &profile, QWidget *parent)
     : QWidget(parent), id(chatID) {
-
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
 
@@ -36,6 +35,7 @@ TerminalPane::TerminalPane(const QString &chatID, const QString &profile, QWidge
         error = QStringLiteral("konsolepart does not expose TerminalInterface");
         part->deleteLater();
         part = 0;
+
         return;
     }
 

@@ -36,7 +36,6 @@ static bool hasFileCapability(const QString &path) {
     char buf[64];
     const ssize_t n =
         getxattr(path.toLocal8Bit().constData(), "security.capability", buf, sizeof(buf));
-
     return n > 0;
 }
 
@@ -58,7 +57,6 @@ Status status() {
 
     s.reason = QCoreApplication::translate("Reptyr", "installed, but ptrace is restricted");
     s.fixCommand = QStringLiteral("setcap cap_sys_ptrace+ep %1").arg(path);
-
     return s;
 }
 
@@ -67,7 +65,6 @@ Status status() {
 Status status() {
     Status s = {};
     s.reason = QCoreApplication::translate("Reptyr", "live moves are Linux-only");
-
     return s;
 }
 

@@ -18,7 +18,6 @@ QString SessionStore::dataDir() {
         d = QDir::homePath() + "/.local/share/rezoom";
 
     QDir().mkpath(d);
-
     return d;
 }
 

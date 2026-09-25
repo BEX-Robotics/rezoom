@@ -61,7 +61,6 @@ QList<Templates::Entry> Templates::all() const {
 
 QString Templates::command(const QString &name) const {
     QSettings s = confFile();
-
     return s.value("templates/" + name).toString();
 }
 
@@ -156,7 +155,6 @@ void Templates::setAutoStart(bool v) {
 
 bool Templates::liveMoves() const {
     QSettings s = confFile();
-
     return s.value("general/live_moves", true).toBool();
 }
 
@@ -167,7 +165,6 @@ void Templates::setLiveMoves(bool v) {
 
 bool Templates::confirmClose() const {
     QSettings s = confFile();
-
     return s.value("general/confirm_close", true).toBool();
 }
 
@@ -178,7 +175,6 @@ void Templates::setConfirmClose(bool v) {
 
 bool Templates::autoAdopt() const {
     QSettings s = confFile();
-
     return s.value("general/auto_adopt", true).toBool();
 }
 
@@ -189,7 +185,6 @@ void Templates::setAutoAdopt(bool v) {
 
 bool Templates::resumeOnStart() const {
     QSettings s = confFile();
-
     return s.value("general/resume_on_start", true).toBool();
 }
 

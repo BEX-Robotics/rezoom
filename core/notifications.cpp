@@ -25,7 +25,6 @@ bool NotificationWatcher::looksFrozen(const QString &message) {
         "limit (reached|hit)|(usage|rate|weekly|session|5-hour) limit|resets at"
         "|out of (credits?|usage)|credit balance|insufficient credit",
         QRegularExpression::CaseInsensitiveOption);
-
     return re.match(message).hasMatch();
 }
 

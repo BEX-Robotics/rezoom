@@ -27,7 +27,6 @@ static void attachChat(QTreeWidgetItem *item, const Chat &c) {
 
 AdoptDialog::AdoptDialog(SessionStore *store, LiveRegistry *registry, QWidget *parent)
     : QDialog(parent), store(store), registry(registry) {
-
     setWindowTitle(tr("Adopt sessions"));
     resize(780, 480);
 
@@ -100,7 +99,6 @@ QWidget *AdoptDialog::makeRunningTab() {
     }
 
     tree->header()->setSectionResizeMode(2, QHeaderView::Stretch);
-
     return wrapTab(tree, tr("Claude sessions running outside Rezoom right now."));
 }
 
@@ -176,7 +174,6 @@ QWidget *AdoptDialog::makeTerminalsTab() {
     }
 
     tree->header()->setSectionResizeMode(2, QHeaderView::Stretch);
-
     return wrapTab(tree, tr("Local tmux sessions and live ssh connections."));
 }
 

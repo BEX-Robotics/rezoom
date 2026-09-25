@@ -10,7 +10,6 @@
 
 static QString codexSessionsDir() {
     const QString override = qEnvironmentVariable("REZOOM_CODEX_DIR");
-
     return (override.isEmpty() ? QDir::homePath() + "/.codex" : override) + "/sessions";
 }
 

@@ -10,7 +10,6 @@
 
 static QString projectsDir() {
     const QString override = qEnvironmentVariable("REZOOM_CLAUDE_DIR");
-
     return (override.isEmpty() ? QDir::homePath() + "/.claude" : override) + "/projects";
 }
 
@@ -72,7 +71,6 @@ TranscriptInfo TranscriptIndex::readInfo(const QString &path) {
         info.cwd = unescapePreview(m.captured(1));
 
     info.preview = extractPreview(head);
-
     return info;
 }
 
