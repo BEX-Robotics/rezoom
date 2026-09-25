@@ -76,6 +76,7 @@ std::optional<LiveEntry> LiveRegistry::readPidFile(int pid) {
 
 void LiveRegistry::rescan() {
     QHash<QString, LiveEntry> fresh;
+    QHash<QString, QList<LiveEntry>> freshAll;
     const QDir dir(sessionsDir());
     const QStringList files = dir.entryList({"*.json"}, QDir::Files);
 
@@ -91,7 +92,9 @@ void LiveRegistry::rescan() {
         if (!e)
             continue;
 
-        // Same session id under two pids (stale file): keep the freshest.
+        freshAll[e->sessionID].append(*e);
+
+        // Deduped view keeps the freshest writer.
         const auto it = fresh.constFind(e->sessionID);
 
         if (it == fresh.constEnd() || it->updatedAt < e->updatedAt)
@@ -111,6 +114,8 @@ void LiveRegistry::rescan() {
         }
     }
 
+    allEntries = freshAll;
+
     if (!same) {
         entries = fresh;
         emit updated();
@@ -128,6 +133,10 @@ std::optional<LiveEntry> LiveRegistry::entryForSession(const QString &sessionID)
         return std::nullopt;
 
     return *it;
+}
+
+QList<LiveEntry> LiveRegistry::entriesForSession(const QString &sessionID) const {
+    return allEntries.value(sessionID);
 }
 
 std::optional<LiveEntry> LiveRegistry::entryForPID(int pid) const {

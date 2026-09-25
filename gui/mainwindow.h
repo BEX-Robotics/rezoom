@@ -3,6 +3,7 @@
 #include <QList>
 #include <QMainWindow>
 #include <QSet>
+#include <optional>
 
 #include "core/liveregistry.h"
 #include "core/notifications.h"
@@ -103,6 +104,7 @@ private:
     void openShortcuts();
     void scanChatDelta(const Chat &c, RegistryDeltas &d);
     void wirePane(TerminalPane *pane);
+    std::optional<LiveEntry> liveFor(const Chat &c) const;
     void refreshExternalTitles();
     void pushLiveTitles();
     void updateAttention(); // window title + taskbar badge

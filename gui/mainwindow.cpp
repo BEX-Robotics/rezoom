@@ -381,7 +381,7 @@ void MainWindow::actOnCurrent() {
     if (!c)
         return;
 
-    if (registry.entryForSession(c->claudeSessionID))
+    if (liveFor(*c))
         pullInLive(currentID); // running outside — beam it in
     else
         launchChat(currentID);
@@ -493,7 +493,7 @@ void MainWindow::refreshView(const QString &chatID) {
         return;
 
     int externalPID = 0;
-    const auto live = registry.entryForSession(c->claudeSessionID);
+    const auto live = liveFor(*c);
 
     if (live)
         externalPID = live->pid;
@@ -733,7 +733,7 @@ void MainWindow::onChildTmux(const QString &chatID, const QStringList &cmdline) 
 // (titleLocked chats excepted), stream the transcript tail while busy, and
 // persist the turn result + unread mark on busy→idle.
 void MainWindow::scanChatDelta(const Chat &c, RegistryDeltas &d) {
-    const auto live = registry.entryForSession(c.claudeSessionID);
+    const auto live = liveFor(c);
     const QString now = live ? live->status : QString();
     const QString before = lastStatus.value(c.id);
 
@@ -819,6 +819,22 @@ void MainWindow::onRegistryUpdated() {
     updateAttention();
 }
 
+// A sid claimed by several pids flip-flops the deduped registry entry;
+// pin each chat to the process whose cwd matches it, so titles, raise and
+// beam always act on the same terminal the row shows.
+std::optional<LiveEntry> MainWindow::liveFor(const Chat &c) const {
+    const QList<LiveEntry> all = registry.entriesForSession(c.claudeSessionID);
+
+    if (all.size() <= 1)
+        return all.isEmpty() ? std::nullopt : std::optional<LiveEntry>(all.first());
+
+    for (const LiveEntry &e : all)
+        if (e.cwd == c.cwd)
+            return e;
+
+    return all.first();
+}
+
 // Mirror each external session's Konsole window title (claude's activity
 // line — the only name the user has actually seen) as the chat's live title.
 void MainWindow::refreshExternalTitles() {
@@ -829,7 +845,7 @@ void MainWindow::refreshExternalTitles() {
         if (panes.contains(c.id) || c.claudeSessionID.isEmpty())
             continue;
 
-        const auto live = registry.entryForSession(c.claudeSessionID);
+        const auto live = liveFor(c);
 
         if (!live)
             continue;
@@ -1115,7 +1131,7 @@ void MainWindow::showContextMenu(const QPoint &pos) {
     chord(menu.addAction(tr("Pop out to Konsole"), this, [this, id] { popOut(id); }),
           "Ctrl+Shift+O");
 
-    const auto live = registry.entryForSession(c->claudeSessionID);
+    const auto live = liveFor(*c);
 
     if (live && !panes.contains(id)) {
         const int pid = live->pid;

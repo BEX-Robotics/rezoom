@@ -36,6 +36,11 @@ public:
     const QHash<QString, LiveEntry> &bySessionID() const { return entries; }
 
     std::optional<LiveEntry> entryForSession(const QString &sessionID) const;
+
+    // A session id can be claimed by several live pids (double-resume,
+    // leftovers) — everything that needs one specific process resolves
+    // through the full list, not the deduped map.
+    QList<LiveEntry> entriesForSession(const QString &sessionID) const;
     std::optional<LiveEntry> entryForPID(int pid) const; // falls back to reading the file
 
     static std::optional<LiveEntry> readPidFile(int pid);
@@ -49,6 +54,7 @@ signals:
 
 private:
     QHash<QString, LiveEntry> entries;
+    QHash<QString, QList<LiveEntry>> allEntries;
     QFileSystemWatcher *watcher = 0;
     QTimer timer;
 };
