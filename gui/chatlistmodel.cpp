@@ -109,6 +109,12 @@ static QString elide(const QString &s, int max) {
 QString ChatListModel::tooltipFor(const Chat &c, const Row &row) const {
     QStringList lines;
     lines << QStringLiteral("<b>%1</b>").arg(elide(row.title, 60).toHtmlEscaped());
+    const QString live = liveTitles.value(c.id);
+
+    // A renamed chat keeps its name on the row; its live title shows here.
+    if (c.titleLocked && !live.isEmpty() && live != row.title)
+        lines << QStringLiteral("<span style='color:gray'>%1</span>")
+                     .arg(tr("now: %1").arg(elide(live, 60).toHtmlEscaped()));
     QString meta = c.kind + QString::fromUtf8("  \xc2\xb7  ") + statusLine(row.status); // "·"
 
     if (c.lastActiveAt)
@@ -176,9 +182,10 @@ ChatListModel::Row ChatListModel::makeRow(const Chat &c, const QString &status) 
     row.unread = unreadIDs.contains(c.id);
 
     // Live display overrides: konsole caption as title, busy-tail as preview.
+    // A name the user gave (titleLocked) always wins over the live title.
     const QString lt = liveTitles.value(c.id);
 
-    if (!lt.isEmpty()) {
+    if (!lt.isEmpty() && !c.titleLocked) {
         row.title = lt;
         row.tooltip = lt;
     }
