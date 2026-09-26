@@ -37,6 +37,9 @@ QList<ProcInfo> runningSsh();
 // Best-effort ssh destination from a client cmdline ("user@host" or "host").
 QString sshDestination(const QStringList &cmdline);
 
+// Parent pid, 0 when unknown.
+int parentPid(int pid);
+
 // Nearest ancestor whose comm matches (0 = none) — e.g. the konsole window
 // hosting a claude, or detecting tool-spawned claude-under-claude.
 int ancestorPidOfComm(int pid, const QString &comm);

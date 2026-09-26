@@ -131,6 +131,14 @@ QList<int> children(int pid) {
 
 #ifdef Q_OS_MACOS
 
+int parentPid(int pid) {
+    for (const kinfo_proc &p : allProcs())
+        if (p.kp_proc.p_pid == pid)
+            return p.kp_eproc.e_ppid;
+
+    return 0;
+}
+
 int ancestorPidOfComm(int pid, const QString &) {
     Q_UNUSED(pid);
     return 0; // konsole/claude-spawn ancestry is a Linux concern
@@ -138,17 +146,20 @@ int ancestorPidOfComm(int pid, const QString &) {
 
 #else
 
+int parentPid(int pid) {
+    QFile f(QStringLiteral("/proc/%1/stat").arg(pid));
+
+    if (!f.open(QIODevice::ReadOnly))
+        return 0;
+
+    // comm may contain spaces: ppid is the 2nd field after the ')'.
+    const QString stat = QString::fromUtf8(f.readAll());
+    return stat.mid(stat.lastIndexOf(')') + 1).split(' ', Qt::SkipEmptyParts).value(1).toInt();
+}
+
 int ancestorPidOfComm(int pid, const QString &wanted) {
     for (int depth = 0; depth < 20; ++depth) {
-        QFile f(QStringLiteral("/proc/%1/stat").arg(pid));
-
-        if (!f.open(QIODevice::ReadOnly))
-            return 0;
-
-        // comm may contain spaces: ppid is the 2nd field after the ')'.
-        const QString stat = QString::fromUtf8(f.readAll());
-        const QStringList after = stat.mid(stat.lastIndexOf(')') + 1).split(' ', Qt::SkipEmptyParts);
-        const int ppid = after.value(1).toInt();
+        const int ppid = parentPid(pid);
 
         if (ppid <= 1)
             return 0;

@@ -64,6 +64,7 @@ add_executable(rezoom
     gui/shortcutsdialog.cpp
     gui/singleinstance.cpp
     gui/konsoletitles.cpp
+    gui/windowraiser.cpp
     gui/resources.qrc)
 target_compile_definitions(rezoom PRIVATE REZOOM_VERSION="${PROJECT_VERSION}")
 target_link_libraries(rezoom PRIVATE rezoomcore Qt6::Widgets)

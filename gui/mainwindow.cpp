@@ -49,6 +49,7 @@
 #include "settingsdialog.h"
 #include "shortcutsdialog.h"
 #include "terminalpane.h"
+#include "windowraiser.h"
 
 static void launchInKonsole(const QString &cwd, const QString &command) {
     ExternalTerminal::launch(cwd, command);
@@ -1552,18 +1553,10 @@ void MainWindow::popOutRecovery(const QString &chatID, const QString &why,
 }
 
 void MainWindow::raiseExternal(int pid) {
-    const QString script = QDir::homePath() + "/.claude/raise-konsole.sh";
-
-    if (!QFile::exists(script))
-        return;
-
-    QProcess proc;
-    proc.setProgram("bash");
-    proc.setArguments({script});
-    QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
-    env.insert("RAISE_KONSOLE_START_PID", QString::number(pid));
-    proc.setProcessEnvironment(env);
-    proc.startDetached();
+    if (!WindowRaiser::raise(pid))
+        QMessageBox::information(this, tr("Go to its window"),
+                                 tr("Couldn't find a Konsole window for this session "
+                                    "(pid %1).").arg(pid));
 }
 
 struct RemoteFinding {
