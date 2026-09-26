@@ -64,6 +64,7 @@ private:
     QList<Row> buildRows() const;
     QString tooltipFor(const Chat &c, const Row &row) const;
     bool matchesFilter(const Chat &c) const;
+    QString twinsWarning(const Chat &c) const;
 
     SessionStore *store = 0;
     LiveRegistry *registry = 0;

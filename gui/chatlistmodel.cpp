@@ -104,6 +104,25 @@ static QString elide(const QString &s, int max) {
     return s.size() > max ? s.left(max) + QString::fromUtf8("\xe2\x80\xa6") : s;
 }
 
+// Red warning when one session id is live in several terminals at once.
+QString ChatListModel::twinsWarning(const Chat &c) const {
+    const QList<LiveEntry> twins = registry->entriesForSession(c.claudeSessionID);
+
+    if (twins.size() <= 1)
+        return {};
+
+    QStringList pids;
+
+    for (const LiveEntry &e : twins)
+        pids << QString::number(e.pid);
+
+    // \xe2\x9a\xa0 = UTF-8 for the warning sign, \xe2\x80\x94 = em dash
+    return QStringLiteral("<span style='color:#d64545'>\xe2\x9a\xa0 %1</span>")
+        .arg(tr("running in %1 terminals at once (pids %2) \xe2\x80\x94 close the extras")
+                 .arg(twins.size())
+                 .arg(pids.join(", ")));
+}
+
 // Compact hover card: what it is, where it lives, how it comes back — and a
 // hint to the copy menu, since tooltips can't be copied from.
 QString ChatListModel::tooltipFor(const Chat &c, const Row &row) const {
@@ -143,21 +162,10 @@ QString ChatListModel::tooltipFor(const Chat &c, const Row &row) const {
         lines << QString::fromUtf8("\xe2\x86\xa9 <code>%1</code>")
                      .arg(elide(resume, 56).toHtmlEscaped());
 
-    const QList<LiveEntry> twins = registry->entriesForSession(c.claudeSessionID);
+    const QString twins = twinsWarning(c);
 
-    if (twins.size() > 1) {
-        QStringList pids;
-
-        for (const LiveEntry &e : twins)
-            pids << QString::number(e.pid);
-
-        // \xe2\x9a\xa0 = UTF-8 for the warning sign
-        lines << QStringLiteral("<span style='color:#d64545'>\xe2\x9a\xa0 %1</span>")
-                     .arg(tr("running in %1 terminals at once (pids %2) \xe2\x80\x94 close the extras")
-                              // \xe2\x80\x94 = em dash
-                              .arg(twins.size())
-                              .arg(pids.join(", ")));
-    }
+    if (!twins.isEmpty())
+        lines << twins;
 
     if (const auto fr = notifications->freezeFor(c.claudeSessionID))
         lines << QStringLiteral("<span style='color:#d64545'>%1</span>")
