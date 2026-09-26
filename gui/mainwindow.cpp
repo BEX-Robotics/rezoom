@@ -1278,6 +1278,16 @@ void MainWindow::pullInLive(const QString &chatID) {
     QTimer::singleShot(2500, this, [this, chatID, pid] { verifyPull(chatID, pid); });
 }
 
+// After reptyr -T the old Konsole window is a husk: frozen last frame,
+// input going nowhere. Closing it is safe (the moved process survives —
+// verified), but only a single-session window: never take tabs down with it.
+void MainWindow::closeHusk(int movedPid) {
+    const int kpid = ProcessScout::ancestorPidOfComm(movedPid, QStringLiteral("konsole"));
+
+    if (kpid > 0 && KonsoleTitles::sessionCount(kpid) == 1)
+        kill(kpid, SIGTERM);
+}
+
 void MainWindow::verifyPull(const QString &chatID, int pid) {
     TerminalPane *pane = panes.value(chatID);
 
@@ -1285,8 +1295,10 @@ void MainWindow::verifyPull(const QString &chatID, int pid) {
         return; // pane gone meanwhile — nothing to verify
 
     // On success reptyr stays alive under our shell as the tty forwarder.
-    if (!ProcessScout::findDescendants(pane->shellPID(), {"reptyr"}).isEmpty())
+    if (!ProcessScout::findDescendants(pane->shellPID(), {"reptyr"}).isEmpty()) {
+        closeHusk(pid);
         return;
+    }
 
     offerPullRecovery(chatID, pid,
                       tr("Live pull failed (reptyr's error is shown in the terminal). "

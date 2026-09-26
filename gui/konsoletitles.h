@@ -9,6 +9,9 @@ namespace KonsoleTitles {
 
 QHash<int, QString> byKonsolePid();
 
+// Terminal sessions (tabs/splits) in one konsole process; -1 = unknown.
+int sessionCount(int konsolePid);
+
 // "✳ BIT architecture review" → "BIT architecture review".
 QString stripStatusGlyph(QString title);
 }

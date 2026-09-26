@@ -66,6 +66,7 @@ private:
     void launchChat(const QString &chatID, const QString &commandOverride = QString());
     void pullInLive(const QString &chatID);
     void verifyPull(const QString &chatID, int pid);
+    void closeHusk(int movedPid);
     void offerPullRecovery(const QString &chatID, int pid, const QString &why,
                            const QString &fixCommand);
     void closeAttemptPane(const QString &chatID);

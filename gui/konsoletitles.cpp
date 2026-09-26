@@ -40,10 +40,26 @@ QHash<int, QString> KonsoleTitles::byKonsolePid() {
     return out;
 }
 
+int KonsoleTitles::sessionCount(int konsolePid) {
+    QDBusMessage call = QDBusMessage::createMethodCall(
+        QStringLiteral("org.kde.konsole-%1").arg(konsolePid), QStringLiteral("/Sessions"),
+        QStringLiteral("org.freedesktop.DBus.Introspectable"), QStringLiteral("Introspect"));
+    const QDBusMessage reply = QDBusConnection::sessionBus().call(call, QDBus::Block, 300);
+
+    if (reply.type() != QDBusMessage::ReplyMessage)
+        return -1;
+
+    return reply.arguments().value(0).toString().count(QLatin1String("<node name="));
+}
+
 #else
 
 QHash<int, QString> KonsoleTitles::byKonsolePid() {
     return {};
+}
+
+int KonsoleTitles::sessionCount(int) {
+    return -1;
 }
 
 #endif
