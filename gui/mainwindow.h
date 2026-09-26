@@ -63,7 +63,8 @@ private:
     void floatChat(const QString &chatID, FloatWindow *target); // target 0 → new window
     void buildFloatMenu(QMenu *menu, const QString &chatID);
     void refreshView(const QString &chatID);
-    void launchChat(const QString &chatID, const QString &commandOverride = QString());
+    void launchChat(const QString &chatID, const QString &commandOverride = QString(),
+                    bool quiet = false); // quiet = background: no reorder, no focus
     void pullInLive(const QString &chatID);
     void verifyPull(const QString &chatID, int pid);
     void closeHusk(int movedPid);

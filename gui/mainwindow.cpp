@@ -239,7 +239,7 @@ void MainWindow::resumePrevious() {
 
         QTimer::singleShot(400 * slot++, this, [this, id] {
             if (!panes.contains(id))
-                launchChat(id);
+                launchChat(id, QString(), true);
         });
     }
 }
@@ -557,7 +557,8 @@ void MainWindow::wirePane(TerminalPane *pane) {
             });
 }
 
-void MainWindow::launchChat(const QString &chatID, const QString &commandOverride) {
+void MainWindow::launchChat(const QString &chatID, const QString &commandOverride,
+                            bool quiet) {
     const Chat *c = store.find(chatID);
 
     if (!c || panes.contains(chatID))
@@ -594,8 +595,13 @@ void MainWindow::launchChat(const QString &chatID, const QString &commandOverrid
 
     const QString cwd = (!c->cwd.isEmpty() && c->host.isEmpty()) ? c->cwd : QDir::homePath();
     pane->runCommand(cwd, commandOverride.isEmpty() ? templates.resolveFor(*c) : commandOverride);
-    store.touch(chatID);
 
+    // Background (auto-resume) launches restore state — they must not reorder
+    // the list or steal the user's selection.
+    if (quiet)
+        return;
+
+    store.touch(chatID);
     FloatWindow *w = floatOf(view);
 
     if (w)
