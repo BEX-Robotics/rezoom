@@ -1,9 +1,15 @@
 # Rezoom
 
-**One chat list for every Claude Code session on your machine.** Rezoom shows each
-Claude Code, Codex, ssh, tmux or shell session as a chat: what it's doing right now,
-what it last said, and one click to bring it back. Native C++/Qt6, follows your
-KDE light/dark theme, embeds real Konsole terminals.
+**One chat list for every AI coding session on your machine.** Rezoom shows each
+agent, ssh, tmux or shell session as a chat: what it's doing right now, what it last
+said, and one click to bring it back. Native C++/Qt6, follows your KDE light/dark
+theme, embeds real Konsole terminals.
+
+| Agent | What Rezoom knows |
+|---|---|
+| **Claude Code** | live state (working, waiting, frozen), live title and output, auto-adopt, freeze detection |
+| **Codex** | found in history, adopted, resumed with `codex resume`, detected when started in a pane |
+| **Any other CLI agent** (aider, Gemini CLI, opencode…) | runs as a terminal chat; resumable through a command template in Settings |
 
 [![CI](https://github.com/BEX-Robotics/rezoom/actions/workflows/ci.yml/badge.svg)](https://github.com/BEX-Robotics/rezoom/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/BEX-Robotics/rezoom)](https://github.com/BEX-Robotics/rezoom/releases)
