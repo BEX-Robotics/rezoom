@@ -7,10 +7,10 @@
 #include <QRegularExpression>
 
 #include "transcriptindex.h"
+#include "zones.h"
 
-static QString projectsDir() {
-    const QString override = qEnvironmentVariable("REZOOM_CLAUDE_DIR");
-    return (override.isEmpty() ? QDir::homePath() + "/.claude" : override) + "/projects";
+static QString projectsDir(const Zones::Zone &z) {
+    return z.dir + "/projects";
 }
 
 // Minimal unescape of a JSON string fragment, for display only.
@@ -74,18 +74,27 @@ TranscriptInfo TranscriptIndex::readInfo(const QString &path) {
     return info;
 }
 
-QList<TranscriptInfo> TranscriptIndex::scanAll() {
-    QList<TranscriptInfo> out;
-    const QDir root(projectsDir());
+static void scanZone(const Zones::Zone &z, QList<TranscriptInfo> &out) {
+    const QDir root(projectsDir(z));
     const QStringList projects = root.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
 
     for (const QString &p : projects) {
         const QDir d(root.filePath(p));
         const QStringList files = d.entryList({"*.jsonl"}, QDir::Files);
 
-        for (const QString &fn : files)
-            out.append(readInfo(d.filePath(fn)));
+        for (const QString &fn : files) {
+            TranscriptInfo info = TranscriptIndex::readInfo(d.filePath(fn));
+            info.zone = z.name;
+            out.append(info);
+        }
     }
+}
+
+QList<TranscriptInfo> TranscriptIndex::scanAll() {
+    QList<TranscriptInfo> out;
+
+    for (const Zones::Zone &z : Zones::all())
+        scanZone(z, out);
 
     std::sort(out.begin(), out.end(), [](const TranscriptInfo &a, const TranscriptInfo &b) {
         return a.mtimeMs > b.mtimeMs;
@@ -98,14 +107,16 @@ QString TranscriptIndex::pathForSession(const QString &sessionID) {
     if (sessionID.isEmpty())
         return {};
 
-    const QDir root(projectsDir());
-    const QStringList projects = root.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
+    for (const Zones::Zone &z : Zones::all()) {
+        const QDir root(projectsDir(z));
+        const QStringList projects = root.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
 
-    for (const QString &p : projects) {
-        const QString cand = root.filePath(p) + "/" + sessionID + ".jsonl";
+        for (const QString &p : projects) {
+            const QString cand = root.filePath(p) + "/" + sessionID + ".jsonl";
 
-        if (QFile::exists(cand))
-            return cand;
+            if (QFile::exists(cand))
+                return cand;
+        }
     }
 
     return {};

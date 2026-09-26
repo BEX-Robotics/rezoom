@@ -83,6 +83,7 @@ QWidget *AdoptDialog::makeRunningTab() {
 
         Chat c = Chat::create("claude");
         c.claudeSessionID = e.sessionID;
+        c.zone = e.zone;
         c.cwd = e.cwd;
         c.lastActiveAt = e.updatedAt;
         const QString first = TranscriptIndex::previewForSession(e.sessionID);
@@ -121,6 +122,10 @@ QWidget *AdoptDialog::makeHistoryTab() {
         const bool isCodex = t.path.contains("/.codex/");
         Chat c = Chat::create(isCodex ? "codex" : "claude");
         c.claudeSessionID = t.sessionID;
+
+        if (!isCodex)
+            c.zone = t.zone;
+
         c.cwd = t.cwd;
         c.preview = t.preview;
         c.title = t.preview.left(40);

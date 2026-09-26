@@ -9,22 +9,25 @@
 
 #include "liveregistry.h"
 #include "processscout.h"
+#include "zones.h"
 
-// $REZOOM_CLAUDE_DIR overrides ~/.claude for tests and staged demos.
-static QString claudeDir() {
-    const QString override = qEnvironmentVariable("REZOOM_CLAUDE_DIR");
-    return override.isEmpty() ? QDir::homePath() + "/.claude" : override;
+static QString sessionsDir(const Zones::Zone &z) {
+    return z.dir + "/sessions";
 }
 
-static QString sessionsDir() {
-    return claudeDir() + "/sessions";
+// Watch every zone's sessions dir; dirs can appear later (first claude run
+// in a new zone), so this re-arms on each rescan.
+void LiveRegistry::armWatcher() {
+    const QStringList watched = watcher->directories();
+
+    for (const Zones::Zone &z : Zones::all())
+        if (!watched.contains(sessionsDir(z)) && QDir(sessionsDir(z)).exists())
+            watcher->addPath(sessionsDir(z));
 }
 
 LiveRegistry::LiveRegistry(QObject *parent) : QObject(parent) {
     watcher = new QFileSystemWatcher(this);
-
-    if (QDir(sessionsDir()).exists())
-        watcher->addPath(sessionsDir());
+    armWatcher();
 
     connect(watcher, &QFileSystemWatcher::directoryChanged, this, &LiveRegistry::rescan);
 
@@ -51,8 +54,8 @@ bool LiveRegistry::pidAlive(int pid) {
     return pid > 0 && (::kill(pid, 0) == 0 || errno == EPERM);
 }
 
-std::optional<LiveEntry> LiveRegistry::readPidFile(int pid) {
-    QFile f(sessionsDir() + QStringLiteral("/%1.json").arg(pid));
+static std::optional<LiveEntry> readPidFileIn(const Zones::Zone &z, int pid) {
+    QFile f(sessionsDir(z) + QStringLiteral("/%1.json").arg(pid));
 
     if (!f.open(QIODevice::ReadOnly))
         return std::nullopt;
@@ -67,39 +70,28 @@ std::optional<LiveEntry> LiveRegistry::readPidFile(int pid) {
     e.nameSource = o["nameSource"].toString();
     e.cwd = o["cwd"].toString();
     e.updatedAt = static_cast<qint64>(o["updatedAt"].toDouble());
+    e.zone = z.name;
 
-    if (e.sessionID.isEmpty() || !pidAlive(e.pid))
+    if (e.sessionID.isEmpty() || !LiveRegistry::pidAlive(e.pid))
         return std::nullopt;
 
     return e;
 }
 
+std::optional<LiveEntry> LiveRegistry::readPidFile(int pid) {
+    for (const Zones::Zone &z : Zones::all())
+        if (const auto e = readPidFileIn(z, pid))
+            return e;
+
+    return std::nullopt;
+}
+
 void LiveRegistry::rescan() {
     QHash<QString, LiveEntry> fresh;
     QHash<QString, QList<LiveEntry>> freshAll;
-    const QDir dir(sessionsDir());
-    const QStringList files = dir.entryList({"*.json"}, QDir::Files);
 
-    for (const QString &fn : files) {
-        bool ok = false;
-        const int pid = fn.chopped(5).toInt(&ok); // strip ".json"
-
-        if (!ok)
-            continue;
-
-        const auto e = readPidFile(pid);
-
-        if (!e)
-            continue;
-
-        freshAll[e->sessionID].append(*e);
-
-        // Deduped view keeps the freshest writer.
-        const auto it = fresh.constFind(e->sessionID);
-
-        if (it == fresh.constEnd() || it->updatedAt < e->updatedAt)
-            fresh.insert(e->sessionID, *e);
-    }
+    for (const Zones::Zone &z : Zones::all())
+        scanZone(z, fresh, freshAll);
 
     bool same = fresh.size() == entries.size();
 
@@ -121,9 +113,33 @@ void LiveRegistry::rescan() {
         emit updated();
     }
 
-    // The dir can appear after startup (first claude ever) — re-arm the watcher.
-    if (watcher->directories().isEmpty() && QDir(sessionsDir()).exists())
-        watcher->addPath(sessionsDir());
+    armWatcher();
+}
+
+void LiveRegistry::scanZone(const Zones::Zone &z, QHash<QString, LiveEntry> &fresh,
+                            QHash<QString, QList<LiveEntry>> &freshAll) {
+    const QStringList files = QDir(sessionsDir(z)).entryList({"*.json"}, QDir::Files);
+
+    for (const QString &fn : files) {
+        bool ok = false;
+        const int pid = fn.chopped(5).toInt(&ok); // strip ".json"
+
+        if (!ok)
+            continue;
+
+        const auto e = readPidFileIn(z, pid);
+
+        if (!e)
+            continue;
+
+        freshAll[e->sessionID].append(*e);
+
+        // Deduped view keeps the freshest writer.
+        const auto it = fresh.constFind(e->sessionID);
+
+        if (it == fresh.constEnd() || it->updatedAt < e->updatedAt)
+            fresh.insert(e->sessionID, *e);
+    }
 }
 
 std::optional<LiveEntry> LiveRegistry::entryForSession(const QString &sessionID) const {

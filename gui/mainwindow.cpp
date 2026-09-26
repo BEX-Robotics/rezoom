@@ -658,6 +658,13 @@ void MainWindow::onChildClaude(const QString &chatID, int claudePID) {
         changed = true;
     }
 
+    // The zone is wherever claude registered itself (e.g. a shell function
+    // picked CLAUDE_CONFIG_DIR) — learn it, never guess it.
+    if (c.zone != live->zone) {
+        c.zone = live->zone;
+        changed = true;
+    }
+
     if (c.kind == "shell") {
         c.kind = "claude";
         changed = true;
@@ -980,6 +987,7 @@ void MainWindow::autoAdoptNew() {
 Chat MainWindow::chatFromLive(const LiveEntry &e) {
     Chat c = Chat::create("claude");
     c.claudeSessionID = e.sessionID;
+    c.zone = e.zone;
     c.cwd = e.cwd;
     c.lastActiveAt = e.updatedAt;
     const QString first = TranscriptIndex::previewForSession(e.sessionID);

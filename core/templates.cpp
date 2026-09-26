@@ -7,6 +7,7 @@
 
 #include "chat.h"
 #include "templates.h"
+#include "zones.h"
 
 // → ~/.config/rezoom/rezoom.conf (INI on Linux). Relies on C++17 guaranteed
 // copy elision — QSettings itself is not copyable.
@@ -96,7 +97,15 @@ QString Templates::defaultTemplateFor(const Chat &c) const {
     return "shell";
 }
 
+// Local claude chats in a non-default account zone run with that zone's
+// CLAUDE_CONFIG_DIR; everything else is exactly the template.
 QString Templates::resolveFor(const Chat &c) const {
+    const QString cmd = resolveTemplate(c);
+    const bool zoned = !c.zone.isEmpty() && c.kind == "claude" && c.host.isEmpty();
+    return (zoned && !cmd.isEmpty()) ? Zones::envPrefix(c.zone) + cmd : cmd;
+}
+
+QString Templates::resolveTemplate(const Chat &c) const {
     if (!c.commandOverride.trimmed().isEmpty())
         return expand(c.commandOverride, c);
 

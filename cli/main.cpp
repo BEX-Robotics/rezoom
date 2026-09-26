@@ -89,6 +89,7 @@ static int cmdAdoptRunning(SessionStore &store, LiveRegistry &registry) {
 
             Chat c = Chat::create("claude");
             c.claudeSessionID = e.sessionID;
+            c.zone = e.zone;
             c.cwd = e.cwd;
             c.lastActiveAt = e.updatedAt;
             const QString first = TranscriptIndex::previewForSession(e.sessionID);

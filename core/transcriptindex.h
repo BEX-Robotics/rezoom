@@ -9,6 +9,7 @@ struct TranscriptInfo {
     QString cwd;
     QString preview; // first real user message, cleaned up
     QString path;
+    QString zone; // account zone name, "" = default ~/.claude
     qint64 mtimeMs = 0;
     qint64 size = 0;
 };

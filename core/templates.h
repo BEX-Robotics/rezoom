@@ -48,6 +48,7 @@ public:
     void setLiveMoves(bool v);
 
 private:
+    QString resolveTemplate(const Chat &c) const;
     void seedDefaults();
     void seedLater();
 };

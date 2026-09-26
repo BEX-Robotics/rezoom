@@ -5,6 +5,8 @@
 #include <QObject>
 #include <QTimer>
 
+#include "zones.h"
+
 class QFileSystemWatcher;
 
 // One running Claude Code session, as reported by claude itself in
@@ -17,6 +19,7 @@ struct LiveEntry {
     QString name;
     QString nameSource; // "derived" = machine-made, prefer transcript titles
     QString cwd;
+    QString zone; // account zone name, "" = default ~/.claude
     qint64 updatedAt = 0;
 };
 
@@ -53,6 +56,10 @@ signals:
     void updated();
 
 private:
+    void armWatcher();
+    void scanZone(const Zones::Zone &z, QHash<QString, LiveEntry> &fresh,
+                  QHash<QString, QList<LiveEntry>> &freshAll);
+
     QHash<QString, LiveEntry> entries;
     QHash<QString, QList<LiveEntry>> allEntries;
     QFileSystemWatcher *watcher = 0;
