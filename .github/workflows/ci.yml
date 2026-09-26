@@ -23,7 +23,7 @@ jobs:
         run: |
           apt-get update
           apt-get install -y --no-install-recommends \
-            g++ cmake ninja-build pkg-config dpkg-dev \
+            ca-certificates g++ cmake ninja-build pkg-config dpkg-dev \
             qt6-base-dev libkf6parts-dev libkf6service-dev \
             libkf6coreaddons-dev libkf6i18n-dev extra-cmake-modules
       - name: Build
