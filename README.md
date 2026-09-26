@@ -1,66 +1,66 @@
 # Rezoom
 
-**WhatsApp for your Claude Code sessions and terminals.** Native C++/Qt6, KDE-native
-dark/light theming, embedded Konsole terminals. Every session — claude, shell, ssh,
-tmux — is a chat in the left panel and stays **forever resumable**.
+**One chat list for every Claude Code session on your machine.** Rezoom shows each
+Claude Code, Codex, ssh, tmux or shell session as a chat: what it's doing right now,
+what it last said, and one click to bring it back. Native C++/Qt6, follows your
+KDE light/dark theme, embeds real Konsole terminals.
 
-![Rezoom](docs/screenshot.png)
-
+[![CI](https://github.com/BEX-Robotics/rezoom/actions/workflows/ci.yml/badge.svg)](https://github.com/BEX-Robotics/rezoom/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/BEX-Robotics/rezoom)](https://github.com/BEX-Robotics/rezoom/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
+![Rezoom: session list with presence dots on the left, an embedded Claude session on the right](docs/screenshot.png)
+
 ## What it does
 
-- **Live presence** — watches the registry Claude Code itself maintains
-  (`~/.claude/sessions/`): green = working, amber = waiting for you, blue = shell,
-  red = frozen on a usage limit, hollow = resumable. Finished-while-unfocused chats
-  get an unread marker.
-- **Auto-adopt** — every new interactive claude session on the machine becomes a
-  chat by itself; background agent sessions are filtered out.
-- **Auto-resume** — the sessions that were running come back on startup (survives
-  crashes: the running set is persisted continuously, not on quit).
-- **Automatic session tracking** — session ids recorded live (including id changes
-  after `/clear`), plus ssh/tmux commands typed into embedded terminals remembered
-  as "how to get back in".
-- **Resume anything** — dead chats show the exact resumable command behind one
-  button. Command templates are configurable per chat and globally
-  (`~/.config/rezoom/rezoom.conf`).
-- **Adopt everything** — running claudes, any historical transcript, tmux sessions,
-  live ssh clients. External sessions are never touched: raise their window, or
-  **pull them in live** via reptyr (verified, with automatic fallback to lossless
-  kill-and-resume).
-- **Floating groups** — pop chats into floating tab windows (one per screen), pull
-  them back; the whole layout persists across restarts.
-- **Freeze detection** — one click in Settings installs a Notification hook that
-  feeds limit/credit banners into the app; frozen sessions turn red with the
-  reset time.
-- **Consent-first SSH** — ssh chats never connect on their own; the button press is
-  the consent. Optional remote scan finds claude/tmux sessions on hosts you use.
-- **Single instance** — relaunching raises the window; `rezoom --resume <query>`
-  acts on the running instance (KRunner-friendly).
+- **See everything at once.** Rezoom reads the registry Claude Code already writes
+  (`~/.claude/sessions/`). Every session shows a presence dot — green working,
+  amber waiting for you, blue at a shell, red frozen on a usage limit, hollow
+  resumable — its live title, and its latest output while it works. New sessions
+  appear on their own; tool-spawned ones (in `/tmp`, or started by another claude)
+  are left out.
+- **Find the one you mean.** External sessions carry their Konsole window title,
+  and search matches titles, messages and folders.
+- **Never lose a session.** Every chat keeps the exact command that brings it back.
+  Whatever was running comes back when Rezoom starts, even after a crash.
+- **Move sessions without killing them.** A session running in some other Konsole
+  window can be beamed into Rezoom live (reptyr), or you can jump to its window.
+  "Restart to update" is one keystroke per session.
+- **Group across screens.** Float chats into their own tabbed windows and pull them
+  back; the layout survives restarts.
+- **Know when you're blocked.** One click in Settings installs a Claude Code
+  Notification hook; sessions frozen on a usage limit turn red with the reset time.
+- **Keyboard first.** Everything has a `Ctrl+Shift` chord (`Ctrl+Shift+/` lists them),
+  so plain Ctrl keys still reach your shell.
+
+![A session running in another window, with Beam it in and Go to its window](docs/beam-in.png)
+
+## Privacy
+
+Rezoom runs entirely on your machine and never calls an API. It reads Claude's own
+files and writes only its own. The two exceptions are opt-in and say so in Settings:
+the freeze-detection hook (added to `~/.claude/settings.json`, with a backup) and
+skipping Claude's "trust this folder?" prompt for folders you already use (off by
+default). SSH chats never connect until you click.
 
 ## Install
 
-**Debian/Ubuntu** — grab the `.deb` from the
+**Debian/Ubuntu (25.04 or newer, for KF6)** — download the `.deb` from the
 [latest release](https://github.com/BEX-Robotics/rezoom/releases/latest):
 
 ```sh
-sudo apt install ./rezoom_1.0.0_amd64.deb   # pulls Qt6/KF6/konsole-kpart via apt
+sudo apt install ./rezoom_1.1.0_amd64.deb   # pulls Qt6/KF6/konsole-kpart via apt
 ```
 
-**Fedora/openSUSE** — build from the spec: `rpmbuild -ba dist/rezoom.spec`
-(or point Copr/OBS at it).
+**Fedora/openSUSE** — build from the spec: `rpmbuild -ba dist/rezoom.spec`.
 
-**Arch** — `dist/PKGBUILD` is AUR-ready: `makepkg -si` from a directory containing it.
+**Arch** — `dist/PKGBUILD`: `makepkg -si` from a directory containing it.
 
-All packaging depends on distro packages — nothing bundled, nothing statically
-linked. Flatpak/AppImage are deliberately absent: Rezoom leans on the host's
-Konsole/KF6. Without KDE's `konsole-kpart` (e.g. macOS) it builds and runs with
-external terminal windows instead of embedded panes.
+Packages depend on your distro's Qt/KF6; nothing is bundled.
 
-Optional extras (Linux): `reptyr` for live pull-in
-(`sudo setcap cap_sys_ptrace+ep $(which reptyr)` to allow it under Yama),
-`tmux` for persistent plain terminals.
+Optional: `reptyr` for moving live sessions
+(`sudo setcap cap_sys_ptrace+ep $(which reptyr)` to allow it under Yama — Settings
+shows whether it's ready), `tmux`, `jq` for the freeze-detection hook.
 
 ## Build from source
 
@@ -77,37 +77,19 @@ build/rezoom
 macOS:
 
 ```sh
-brew install cmake ninja qt jq
-cmake -B build -G Ninja -DCMAKE_PREFIX_PATH="$(brew --prefix)"
+brew install cmake ninja qt
+cmake -B build -G Ninja -DCMAKE_PREFIX_PATH="$(brew --prefix qt)"
 ninja -C build
 build/rezoom
 ```
 
-### Using it on macOS
+### On macOS
 
-KF6/Konsole is KDE-only, so macOS builds have no embedded terminals: opening a
-chat launches it in a Terminal.app window instead (same for `rezoom-cli
-resume`). Presence tracking, auto-adopt, auto-resume, transcripts, archive,
-templates and the store all work the same — Claude Code maintains the same
-`~/.claude/sessions/` registry on macOS.
-
-Differences to know about:
-
-- **Freeze detection**: put `dist/rezoom-notify-hook.sh` on your `$PATH` as
-  `rezoom-notify-hook` (it needs `jq`), then use Settings → Install.
-- **Live pull-in (reptyr) is Linux-only** — reptyr does not support macOS.
-  External sessions are managed by launch/relaunch instead.
-- **Single instance is inactive** (no session DBus); each `rezoom` launch is
-  its own window. The store stays consistent — it's multi-process safe.
-- "Raise external window" is not wired to Terminal.app yet.
-
-## Keyboard
-
-Everything lives on `Ctrl+Shift` chords so plain Ctrl keys reach the embedded
-shells. `Ctrl+Shift+/` shows the full overlay in-app. Highlights:
-`Ctrl+Shift+Return` resume/beam/connect the selected chat, `Ctrl+PgUp/PgDn`
-walk chats, `Ctrl+Shift+F` search, `Ctrl+Shift+E` archive, `Ctrl+Shift+D`
-float out / pull back, `Ctrl+Shift+N/T/S` new claude/terminal/ssh.
+KF6/Konsole is KDE-only, so chats open in Terminal.app windows instead of embedded
+panes. Presence, titles, search, auto-adopt, auto-resume, restart, archive, templates
+and freeze detection work the same: Claude Code writes the same registry on macOS.
+Beam-in and "Go to its window" need Linux (reptyr, KWin) and don't appear on macOS,
+and single-instance is off there (the session store stays consistent anyway).
 
 ## CLI
 
@@ -116,6 +98,7 @@ rezoom-cli list                  # chats + live presence (TSV)
 rezoom-cli resume <query>        # reopen a chat in a terminal window
 rezoom-cli resume <query> --print
 rezoom-cli adopt-running         # adopt every untracked running claude
+rezoom-cli prune                 # drop dead chats stranded in /tmp
 rezoom --resume <query>          # GUI: select + launch (forwards to a running instance)
 ```
 
@@ -124,13 +107,14 @@ rezoom --resume <query>          # GUI: select + launch (forwards to a running i
 | Path | What |
 |---|---|
 | `~/.local/share/rezoom/sessions.json` | chat records (multi-process safe) |
-| `~/.local/share/rezoom/notifications.jsonl` | Notification-hook capture |
-| `~/.config/rezoom/rezoom.conf` | templates, prefs, UI layout |
+| `~/.local/share/rezoom/notifications.jsonl` | freeze-detection capture |
+| `~/.config/rezoom/rezoom.conf` | templates, preferences, window layout |
 | `~/.claude/sessions/<pid>.json` | live registry (written by claude, read-only) |
 | `~/.claude/projects/*/<uuid>.jsonl` | transcripts (read-only) |
 
-`$REZOOM_DATA_DIR` and `$REZOOM_CLAUDE_DIR` override the store and registry
-locations (tests, demos).
+`$REZOOM_DATA_DIR` and `$REZOOM_CLAUDE_DIR` point the app at other locations, and
+`$REZOOM_SCREENSHOT=<file.png>` renders the window to a PNG and quits — that's how
+the screenshots above were made, from demo data.
 
 ## License
 
