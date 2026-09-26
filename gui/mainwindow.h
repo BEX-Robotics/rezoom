@@ -75,6 +75,8 @@ private:
     void verifyPopOut(const QString &chatID, int target, const QString &beforeTty);
     void popOutRecovery(const QString &chatID, const QString &why, const QString &fixCommand);
     void resumeWhenGone(const QString &chatID, int pid, int triesLeft);
+    void restartSession(const QString &chatID);
+    void restartCurrent();
     void selectChat(const QString &chatID);
     void showContextMenu(const QPoint &pos);
     void addCopyEntries(QMenu *menu, const Chat *c);

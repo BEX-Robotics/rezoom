@@ -26,6 +26,9 @@ public:
     // Open a shell in cwd and (if command non-empty) type the command in.
     void runCommand(const QString &cwd, const QString &command);
 
+    // Type a command into the pane's existing shell (no new shell).
+    void typeCommand(const QString &command);
+
 signals:
     void terminated(const QString &chatID);
     void childClaude(const QString &chatID, int claudePID);

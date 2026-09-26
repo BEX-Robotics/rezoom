@@ -94,6 +94,11 @@ void TerminalPane::runCommand(const QString &cwd, const QString &command) {
     });
 }
 
+void TerminalPane::typeCommand(const QString &command) {
+    if (term)
+        term->sendInput(command + QStringLiteral("\n"));
+}
+
 void TerminalPane::showEvent(QShowEvent *ev) {
     QWidget::showEvent(ev);
 

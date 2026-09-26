@@ -35,3 +35,6 @@ void TerminalPane::showEvent(QShowEvent *ev) {
 
 void TerminalPane::poll() {
 }
+
+void TerminalPane::typeCommand(const QString &) {
+}

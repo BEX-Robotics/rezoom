@@ -354,6 +354,7 @@ void MainWindow::buildShortcuts() {
     addChord("Ctrl+Shift+E", "Archive chat", &MainWindow::archiveToggleCurrent);
     addChord("Ctrl+Shift+D", "Float chat", &MainWindow::floatToggleCurrent);
     addChord("Ctrl+Shift+O", "Pop out to Konsole", &MainWindow::popOutCurrent);
+    addChord("Ctrl+Shift+U", "Restart session", &MainWindow::restartCurrent);
     addChord("Ctrl+Shift+W", "Close embedded pane", &MainWindow::closePaneCurrent);
     addChord("Ctrl+Shift+P", "Settings", &MainWindow::openSettings);
     addChord("Ctrl+Shift+/", "Keyboard shortcuts", &MainWindow::openShortcuts);
@@ -1134,6 +1135,8 @@ void MainWindow::showContextMenu(const QPoint &pos) {
     addCopyEntries(&menu, c);
     menu.addSeparator();
     buildFloatMenu(&menu, id);
+    chord(menu.addAction(tr("Restart session"), this, [this, id] { restartSession(id); }),
+          "Ctrl+Shift+U");
     chord(menu.addAction(tr("Pop out to Konsole"), this, [this, id] { popOut(id); }),
           "Ctrl+Shift+O");
 
@@ -1395,8 +1398,8 @@ void MainWindow::offerPullRecovery(const QString &chatID, int pid, const QString
 void MainWindow::resumeWhenGone(const QString &chatID, int pid, int triesLeft) {
     if (LiveRegistry::pidAlive(pid)) {
         if (!triesLeft) {
-            QMessageBox::warning(this, tr("Pull into Rezoom"),
-                                 tr("The external session (pid %1) did not exit.").arg(pid));
+            QMessageBox::warning(this, tr("Rezoom"),
+                                 tr("The session (pid %1) did not exit.").arg(pid));
             return;
         }
 
@@ -1407,8 +1410,49 @@ void MainWindow::resumeWhenGone(const QString &chatID, int pid, int triesLeft) {
     }
 
     registry.rescan(); // drop the stale entry before relaunching
-    launchChat(chatID);
+    TerminalPane *pane = panes.value(chatID);
+    const Chat *c = store.find(chatID);
+
+    if (pane && c) // restart in place: the pane's shell survived its claude
+        pane->typeCommand(templates.resolveFor(*c));
+    else
+        launchChat(chatID);
+
     selectChat(chatID);
+}
+
+// "Restart to update" helper: end the session's claude and resume it — in
+// its own pane when embedded, embedded in Rezoom when it ran in an external
+// Konsole (that window closes when claude exits).
+void MainWindow::restartSession(const QString &chatID) {
+    const Chat *c = store.find(chatID);
+
+    if (!c)
+        return;
+
+    TerminalPane *pane = panes.value(chatID);
+    int pid = 0;
+
+    if (pane) {
+        const auto procs = ProcessScout::findDescendants(pane->shellPID(), {"claude", "codex"});
+
+        if (!procs.isEmpty())
+            pid = procs.first().pid;
+    } else if (const auto live = liveFor(*c))
+        pid = live->pid;
+
+    if (!pid) { // nothing running — a restart is just a resume
+        launchChat(chatID);
+        return;
+    }
+
+    kill(pid, SIGTERM);
+    resumeWhenGone(chatID, pid, 40);
+}
+
+void MainWindow::restartCurrent() {
+    if (!currentID.isEmpty())
+        restartSession(currentID);
 }
 
 // The interesting process inside a pane (claude/codex/ssh), else the shell.
