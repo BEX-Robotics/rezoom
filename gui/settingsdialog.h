@@ -19,6 +19,7 @@ private:
     void accept() override;
     void addPrefChecks(QVBoxLayout *layout);
     void addLiveMovesRow(QVBoxLayout *layout);
+    void addFreezeRow(QVBoxLayout *layout);
 
     Templates *templates = 0;
     QTableWidget *table = 0;

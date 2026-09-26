@@ -31,8 +31,9 @@ tmux — is a chat in the left panel and stays **forever resumable**.
   kill-and-resume).
 - **Floating groups** — pop chats into floating tab windows (one per screen), pull
   them back; the whole layout persists across restarts.
-- **Freeze detection** — a Notification hook feeds limit/credit banners into the
-  app; frozen sessions turn red with the reset time.
+- **Freeze detection** — one click in Settings installs a Notification hook that
+  feeds limit/credit banners into the app; frozen sessions turn red with the
+  reset time.
 - **Consent-first SSH** — ssh chats never connect on their own; the button press is
   the consent. Optional remote scan finds claude/tmux sessions on hosts you use.
 - **Single instance** — relaunching raises the window; `rezoom --resume <query>`
@@ -92,10 +93,8 @@ templates and the store all work the same — Claude Code maintains the same
 
 Differences to know about:
 
-- **Freeze detection** needs the Notification hook wired by hand: put
-  `dist/rezoom-notify-hook.sh` somewhere in `$PATH` (it needs `jq`) and add it
-  under `hooks.Notification` in `~/.claude/settings.json` as shown in the
-  script's header comment.
+- **Freeze detection**: put `dist/rezoom-notify-hook.sh` on your `$PATH` as
+  `rezoom-notify-hook` (it needs `jq`), then use Settings → Install.
 - **Live pull-in (reptyr) is Linux-only** — reptyr does not support macOS.
   External sessions are managed by launch/relaunch instead.
 - **Single instance is inactive** (no session DBus); each `rezoom` launch is

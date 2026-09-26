@@ -2,10 +2,12 @@
 #include <QDialogButtonBox>
 #include <QHeaderView>
 #include <QLabel>
+#include <QMessageBox>
 #include <QPushButton>
 #include <QTableWidget>
 #include <QVBoxLayout>
 
+#include "core/hookinstaller.h"
 #include "core/templates.h"
 
 #include "settingsdialog.h"
@@ -91,6 +93,49 @@ void SettingsDialog::addPrefChecks(QVBoxLayout *layout) {
     layout->addWidget(preTrust);
 
     addLiveMovesRow(layout);
+    addFreezeRow(layout);
+}
+
+// Freeze detection = our Notification hook in ~/.claude/settings.json.
+// Acts immediately (no OK needed); with no hook script there's no button.
+void SettingsDialog::addFreezeRow(QVBoxLayout *layout) {
+    auto *row = new QHBoxLayout;
+    auto *status = new QLabel(this);
+    status->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    row->addWidget(status, 1);
+    auto *toggle = new QPushButton(this);
+    row->addWidget(toggle);
+    layout->addLayout(row);
+
+    const auto refresh = [status, toggle] {
+        const bool on = HookInstaller::installed();
+        const bool available = !HookInstaller::hookPath().isEmpty();
+
+        if (on)
+            status->setText(tr("Freeze detection is on (Notification hook in "
+                               "~/.claude/settings.json)."));
+        else if (available)
+            status->setText(tr("Freeze detection is off. Installing adds a Notification hook "
+                               "to ~/.claude/settings.json (backup kept)."));
+        else
+            status->setText(tr("Freeze detection needs rezoom-notify-hook on your PATH; it "
+                               "ships with the Rezoom packages."));
+
+        toggle->setText(on ? tr("Remove") : tr("Install"));
+        toggle->setVisible(on || available);
+    };
+    refresh();
+
+    connect(toggle, &QPushButton::clicked, this, [this, refresh] {
+        QString error;
+        const bool ok = HookInstaller::installed() ? HookInstaller::uninstall(&error)
+                                                   : HookInstaller::install(&error);
+
+        if (!ok)
+            QMessageBox::warning(this, tr("Freeze detection"), error);
+
+        refresh();
+    });
 }
 
 // reptyr live-move toggle plus its readiness, with the copyable fix command
