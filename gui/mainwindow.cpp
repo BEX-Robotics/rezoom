@@ -1633,7 +1633,7 @@ void MainWindow::scanRemote(const QString &chatID) {
         return;
 
     QProcess proc;
-    proc.start("zsh", {"-ic", probe}); // interactive zsh so user aliases work
+    proc.start(ExternalTerminal::userShell(), {"-ic", probe}); // interactive: user aliases work
 
     if (!proc.waitForFinished(20000) || proc.exitStatus() != QProcess::NormalExit) {
         proc.kill();

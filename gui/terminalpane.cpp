@@ -86,7 +86,7 @@ void TerminalPane::runCommand(const QString &cwd, const QString &command) {
     if (command.trimmed().isEmpty())
         return;
 
-    // Type-ahead into the fresh shell; zsh replays it at the first prompt.
+    // Type-ahead into the fresh shell; it replays at the first prompt.
     const QString cmd = command;
     QTimer::singleShot(250, this, [this, cmd] {
         if (term)

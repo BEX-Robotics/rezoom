@@ -1,6 +1,7 @@
 #include <QDir>
 #include <QFile>
 #include <QProcess>
+#include <QStandardPaths>
 
 #include "externalterminal.h"
 
@@ -40,14 +41,10 @@ void launch(const QString &cwd, const QString &command) {
 
 #else
 
-// The user's tinted-profile wrapper if present, plain konsole otherwise.
+// PATH order lets a user's konsole wrapper (e.g. ~/.local/bin) win.
 static QString konsoleBinary() {
-    const QString wrapper = QDir::homePath() + "/.local/bin/konsole";
-
-    if (QFile::exists(wrapper))
-        return wrapper;
-
-    return QStringLiteral("konsole");
+    const QString found = QStandardPaths::findExecutable(QStringLiteral("konsole"));
+    return found.isEmpty() ? QStringLiteral("konsole") : found;
 }
 
 void launch(const QString &cwd, const QString &command) {
@@ -57,11 +54,16 @@ void launch(const QString &cwd, const QString &command) {
         args << "--workdir" << cwd;
 
     if (!command.trimmed().isEmpty())
-        args << "-e" << "zsh" << "-ic" << command;
+        args << "-e" << userShell() << "-ic" << command;
 
     QProcess::startDetached(konsoleBinary(), args);
 }
 
 #endif
+
+QString userShell() {
+    const QString shell = qEnvironmentVariable("SHELL");
+    return (!shell.isEmpty() && QFile::exists(shell)) ? shell : QStringLiteral("/bin/sh");
+}
 
 } // namespace ExternalTerminal
