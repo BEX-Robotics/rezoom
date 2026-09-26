@@ -28,6 +28,9 @@ struct TmuxSession {
 
 QList<TmuxSession> tmuxSessions();
 
+// This user's processes with the given comm.
+QList<ProcInfo> byComm(const QString &name);
+
 // Running ssh client processes owned by this user.
 QList<ProcInfo> runningSsh();
 

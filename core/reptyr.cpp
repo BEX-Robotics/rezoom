@@ -2,6 +2,7 @@
 #include <QFile>
 #include <QStandardPaths>
 
+#include "processscout.h"
 #include "reptyr.h"
 
 #ifdef Q_OS_LINUX
@@ -71,3 +72,19 @@ Status status() {
 #endif
 
 } // namespace Reptyr
+
+QString Reptyr::command(int pid) {
+    const bool hasChildren = !ProcessScout::children(pid).isEmpty();
+    return hasChildren ? QStringLiteral("reptyr -T %1").arg(pid)
+                       : QStringLiteral("reptyr %1").arg(pid);
+}
+
+bool Reptyr::holding(int pid) {
+    const QString want = QString::number(pid);
+
+    for (const auto &p : ProcessScout::byComm(QStringLiteral("reptyr")))
+        if (p.cmdline.value(p.cmdline.size() - 1) == want)
+            return true;
+
+    return false;
+}

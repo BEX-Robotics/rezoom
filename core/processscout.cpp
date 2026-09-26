@@ -93,7 +93,7 @@ QStringList cmdline(int pid) {
     return parts;
 }
 
-QList<ProcInfo> runningSsh() {
+QList<ProcInfo> byComm(const QString &name) {
     QList<ProcInfo> out;
     const uid_t uid = getuid();
 
@@ -103,8 +103,8 @@ QList<ProcInfo> runningSsh() {
 
         const int pid = p.kp_proc.p_pid;
 
-        if (comm(pid) == "ssh")
-            out.append({pid, "ssh", cmdline(pid)});
+        if (comm(pid) == name)
+            out.append({pid, name, cmdline(pid)});
     }
 
     return out;
@@ -166,6 +166,10 @@ int ancestorPidOfComm(int pid, const QString &wanted) {
 
 bool hasAncestorComm(int pid, const QString &wanted) {
     return ancestorPidOfComm(pid, wanted) > 0;
+}
+
+QList<ProcInfo> runningSsh() {
+    return byComm(QStringLiteral("ssh"));
 }
 
 QString tty(int pid) {
@@ -256,7 +260,7 @@ QList<TmuxSession> tmuxSessions() {
 
 #ifndef Q_OS_MACOS
 
-QList<ProcInfo> runningSsh() {
+QList<ProcInfo> byComm(const QString &name) {
     QList<ProcInfo> out;
     const uint uid = getuid();
     const QDir proc("/proc");
@@ -272,8 +276,8 @@ QList<ProcInfo> runningSsh() {
         if (QFileInfo(proc.filePath(e)).ownerId() != uid)
             continue;
 
-        if (comm(pid) == "ssh")
-            out.append({pid, "ssh", cmdline(pid)});
+        if (comm(pid) == name)
+            out.append({pid, name, cmdline(pid)});
     }
 
     return out;

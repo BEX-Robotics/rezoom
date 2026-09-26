@@ -1274,7 +1274,7 @@ void MainWindow::pullInLive(const QString &chatID) {
     }
 
     const int pid = live->pid;
-    launchChat(chatID, QStringLiteral("reptyr %1").arg(pid));
+    launchChat(chatID, Reptyr::command(pid));
     QTimer::singleShot(2500, this, [this, chatID, pid] { verifyPull(chatID, pid); });
 }
 
@@ -1439,7 +1439,7 @@ void MainWindow::popOut(const QString &chatID) {
 
     const QString before = ProcessScout::tty(target);
     launchInKonsole(cp->host.isEmpty() ? cp->cwd : QString(),
-                    QStringLiteral("reptyr %1").arg(target));
+                    Reptyr::command(target));
     QTimer::singleShot(2500, this, [this, chatID, target, before] {
         verifyPopOut(chatID, target, before);
     });
@@ -1447,8 +1447,11 @@ void MainWindow::popOut(const QString &chatID) {
 
 void MainWindow::verifyPopOut(const QString &chatID, int target, const QString &beforeTty) {
     const QString now = ProcessScout::tty(target);
+    const bool ttyMoved = !now.isEmpty() && now != beforeTty;
 
-    if (!now.isEmpty() && now != beforeTty) {
+    // reptyr -T keeps the process on its tty and takes over the pty's other
+    // end instead, so a live reptyr holding the pid is success too.
+    if (ttyMoved || Reptyr::holding(target)) {
         closeAttemptPane(chatID); // moved out — retire the emptied pane
         return;
     }
