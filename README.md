@@ -10,6 +10,7 @@ theme, embeds real Konsole terminals.
 | **Claude Code** | live state (working, waiting, frozen), live title and output, auto-adopt, freeze detection |
 | **Codex** | found in history, adopted, resumed with `codex resume`, detected when started in a pane |
 | **Any other CLI agent** (aider, Gemini CLI, opencode…) | runs as a terminal chat; resumable through a command template in Settings |
+| **Agents on other machines, over SSH** | the ssh you typed is remembered as the way back in; **Scan remote** finds claude and tmux sessions on a host and adopts each as a chat that resumes over ssh |
 
 [![CI](https://github.com/BEX-Robotics/rezoom/actions/workflows/ci.yml/badge.svg)](https://github.com/BEX-Robotics/rezoom/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/BEX-Robotics/rezoom)](https://github.com/BEX-Robotics/rezoom/releases)
@@ -32,6 +33,10 @@ theme, embeds real Konsole terminals.
 - **Move sessions without killing them.** A session running in some other Konsole
   window can be beamed into Rezoom live (reptyr), or you can jump to its window.
   "Restart to update" is one keystroke per session.
+- **Rezoom over SSH.** An `ssh` typed in any pane is recorded as that chat's way back
+  in; live ssh connections can be adopted; **Scan remote** lists the claude and tmux
+  sessions on a host and adopts each one, resuming with `ssh -t host 'claude --resume …'`.
+  Nothing connects until you click.
 - **Group across screens.** Float chats into their own tabbed windows and pull them
   back; the layout survives restarts.
 - **Know when you're blocked.** One click in Settings installs a Claude Code
