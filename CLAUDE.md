@@ -22,6 +22,12 @@ reviewable change per commit, amend unpushed fixes instead of stacking.
   Ctrl/Alt keys must keep reaching the shells inside embedded terminals.
   Every new feature button/menu gets a chord, the surface displays it
   (menu text, tooltip), and `gui/shortcutsdialog.cpp` lists it.
+- **Features that can't work on this machine disappear.** Detect the
+  prerequisite (tool installed, DBus/KWin present, process in a Konsole,
+  hook script shipped) and hide the menu item/button, instead of showing
+  something that fails or silently does nothing. Settings may still show
+  the feature with its readiness and a fix, but never an action that
+  can't run.
 - Strings with non-ASCII glyphs: `QString::fromUtf8("\xe2...")` or `tr()` —
   never `QStringLiteral` with hex escapes (it widens bytes as Latin-1).
 

@@ -6,4 +6,8 @@
 namespace WindowRaiser {
 
 bool raise(int pid);
+
+// Whether raise() can work for this pid here: needs a session bus and the
+// process living in a Konsole. Surfaces hide the action otherwise.
+bool canRaise(int pid);
 }

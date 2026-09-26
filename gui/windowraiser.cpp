@@ -114,6 +114,11 @@ static bool activateViaKWin(int konsolePID, const QString &title) {
     return true;
 }
 
+bool WindowRaiser::canRaise(int pid) {
+    return QDBusConnection::sessionBus().isConnected()
+        && ProcessScout::ancestorPidOfComm(pid, QStringLiteral("konsole")) > 0;
+}
+
 bool WindowRaiser::raise(int pid) {
     const int kpid = ProcessScout::ancestorPidOfComm(pid, QStringLiteral("konsole"));
 
@@ -142,6 +147,10 @@ bool WindowRaiser::raise(int pid) {
 }
 
 #else
+
+bool WindowRaiser::canRaise(int) {
+    return false;
+}
 
 bool WindowRaiser::raise(int) {
     return false;

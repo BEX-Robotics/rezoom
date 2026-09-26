@@ -5,6 +5,7 @@
 #include "core/reptyr.h"
 
 #include "resumepane.h"
+#include "windowraiser.h"
 
 static QHBoxLayout *centered(QWidget *w, int stretch = 2) {
     auto *row = new QHBoxLayout;
@@ -99,22 +100,26 @@ void ResumePane::setChat(const Chat &c, const QString &resolvedCommand, int pid)
 
     const bool external = pid > 0;
     const bool canBeam = external && Reptyr::supported();
-    raiseBtn->setVisible(external);
+    const bool canRaise = external && WindowRaiser::canRaise(pid);
+    raiseBtn->setVisible(canRaise);
     launch->setEnabled(true);
     beaming = canBeam;
 
     if (canBeam) {
         // \xe2\xa4\xb5 = UTF-8 for "⤵" (arrow pointing down then curving left)
         launch->setText(tr("\xe2\xa4\xb5  Beam it in"));
-        note->setText(tr("Running outside Rezoom (pid %1) \xe2\x80\x94 beam it into an "
-                         // \xe2\x80\x94 = UTF-8 for "—" (em dash)
-                         "embedded pane, or go to its window.")
-                          .arg(pid));
+
+        // \xe2\x80\x94 = UTF-8 for "—" (em dash)
+        note->setText(canRaise ? tr("Running outside Rezoom (pid %1) \xe2\x80\x94 beam it into "
+                                    "an embedded pane, or go to its window.").arg(pid)
+                               : tr("Running outside Rezoom (pid %1) \xe2\x80\x94 beam it into "
+                                    "an embedded pane.").arg(pid));
     } else if (external) {
         // Session lives outside and we can't move it in here — offer the raise.
         launch->setEnabled(false);
-        note->setText(tr("Running outside Rezoom (pid %1) \xe2\x80\x94 go to its window.")
-                          .arg(pid));
+        note->setText(canRaise ? tr("Running outside Rezoom (pid %1) \xe2\x80\x94 go to its "
+                                    "window.").arg(pid)
+                               : tr("Running outside Rezoom (pid %1).").arg(pid));
     } else if (c.kind == "ssh") {
         launch->setText(tr("Connect: %1").arg(resolvedCommand.left(60)));
         note->setText(tr("Nothing connects until you press this."));

@@ -1145,7 +1145,9 @@ void MainWindow::showContextMenu(const QPoint &pos) {
 
     if (live && !panes.contains(id)) {
         const int pid = live->pid;
-        menu.addAction(tr("Go to its window"), this, [this, pid] { raiseExternal(pid); });
+
+        if (WindowRaiser::canRaise(pid))
+            menu.addAction(tr("Go to its window"), this, [this, pid] { raiseExternal(pid); });
 
         // \xe2\xa4\xb5 = UTF-8 for "⤵" — reptyr-only, hidden where it can't run
         if (Reptyr::supported())
