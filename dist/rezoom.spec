@@ -1,5 +1,5 @@
 Name:           rezoom
-Version:        1.0.0
+Version:        1.1.0
 Release:        1%{?dist}
 Summary:        WhatsApp-style organizer for Claude Code sessions and terminals
 License:        MIT
@@ -36,6 +36,11 @@ floating group windows, archiving. Every session stays forever resumable.
 %{_datadir}/icons/hicolor/scalable/apps/rezoom.svg
 
 %changelog
+* Sat Sep 26 2026 Pavel <254324686+pavel-bex@users.noreply.github.com> - 1.1.0-1
+- Live titles from Konsole, live output previews, codex sessions
+- Beam-in/pop-out via reptyr -T, restart session, built-in window raise
+- One-click freeze detection, opt-in trust pre-accept, stable ordering
+
 * Thu Aug 20 2026 Pavel <254324686+pavel-bex@users.noreply.github.com> - 1.0.0-1
 - First stable release: presence, embedded terminals, adoption, floating
   groups, auto-adopt, auto-resume, freeze detection, live pull via reptyr
