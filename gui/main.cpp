@@ -3,6 +3,7 @@
 
 #include <QApplication>
 #include <QIcon>
+#include <QTimer>
 
 #include "mainwindow.h"
 #include "singleinstance.h"
@@ -43,6 +44,16 @@ int main(int argc, char **argv) {
 
     if (!resumeQuery.isEmpty())
         window.resumeByQuery(resumeQuery);
+
+    // Demo/docs screenshots: render this window (and only it) to a PNG after
+    // a settle delay, then quit — no desktop capture can pick the wrong window.
+    const QString shot = qEnvironmentVariable("REZOOM_SCREENSHOT");
+
+    if (!shot.isEmpty())
+        QTimer::singleShot(6000, &window, [&window, shot] {
+            window.grab().save(shot);
+            QApplication::quit();
+        });
 
     return app.exec();
 }
