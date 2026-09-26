@@ -1,7 +1,7 @@
 Name:           rezoom
 Version:        1.1.0
 Release:        1%{?dist}
-Summary:        WhatsApp-style organizer for Claude Code sessions and terminals
+Summary:        Chat-list organizer for AI coding sessions (Claude Code, Codex) and terminals
 License:        MIT
 URL:            https://github.com/BEX-Robotics/rezoom
 Source0:        %{url}/archive/v%{version}/%{name}-%{version}.tar.gz
@@ -11,7 +11,7 @@ BuildRequires:  qt6-qtbase-devel kf6-kparts-devel kf6-kcoreaddons-devel
 # konsolepart provides the embedded terminal at runtime
 Requires:       konsole-part
 Requires:       konsole
-Recommends:     zsh tmux reptyr
+Recommends:     tmux reptyr jq
 
 %description
 Chat-list organizer for Claude Code sessions and terminals: live presence,
@@ -29,6 +29,7 @@ floating group windows, archiving. Every session stays forever resumable.
 %cmake_install
 
 %files
+%license LICENSE
 %{_bindir}/rezoom
 %{_bindir}/rezoom-cli
 %{_bindir}/rezoom-notify-hook

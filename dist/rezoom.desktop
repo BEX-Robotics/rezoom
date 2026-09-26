@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
 Name=Rezoom
-Comment=WhatsApp-style organizer for Claude sessions and terminals
+Comment=Chat-list organizer for AI coding sessions (Claude Code, Codex) and terminals
 Exec=rezoom
 Icon=rezoom
 Terminal=false

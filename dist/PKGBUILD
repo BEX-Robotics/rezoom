@@ -2,16 +2,16 @@
 pkgname=rezoom
 pkgver=1.1.0
 pkgrel=1
-pkgdesc="WhatsApp-style organizer for Claude Code sessions and terminals"
+pkgdesc="Chat-list organizer for AI coding sessions (Claude Code, Codex) and terminals"
 arch=(x86_64)
 url="https://github.com/BEX-Robotics/rezoom"
 license=(MIT)
 # Arch ships konsolepart inside the konsole package
 depends=(qt6-base kparts kcoreaddons konsole)
 makedepends=(cmake ninja extra-cmake-modules git)
-optdepends=('zsh: default shell used in embedded terminals'
-            'tmux: persistent plain terminals and tmux-session adoption'
-            'reptyr: pull running sessions into the app live')
+optdepends=('tmux: persistent plain terminals and tmux-session adoption'
+            'reptyr: move running sessions in and out of the app live'
+            'jq: freeze detection (Claude Code Notification hook)')
 source=("git+$url.git#tag=v$pkgver")
 sha256sums=('SKIP')
 
@@ -22,4 +22,5 @@ build() {
 
 package() {
     DESTDIR="$pkgdir" cmake --install build
+    install -Dm644 "$pkgname/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }

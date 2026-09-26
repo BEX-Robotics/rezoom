@@ -25,10 +25,10 @@ Version: $VERSION
 Architecture: $ARCH
 Maintainer: Pavel <254324686+pavel-bex@users.noreply.github.com>
 Depends: libqt6widgets6, libqt6core6 | libqt6core6t64, libkf6parts6, libkf6coreaddons6, konsole-kpart, konsole
-Recommends: zsh, tmux, reptyr
+Recommends: tmux, reptyr, jq
 Section: utils
 Priority: optional
-Description: WhatsApp-style organizer for Claude Code sessions and terminals
+Description: Chat-list organizer for AI coding sessions (Claude Code, Codex) and terminals
  Left-panel chat list of claude/ssh/tmux/shell sessions with live presence,
  embedded Konsole terminals, one-click resume, adoption of external sessions,
  and archiving. Sessions stay forever resumable.

@@ -1,0 +1,22 @@
+pkgbase = rezoom
+	pkgdesc = Chat-list organizer for AI coding sessions (Claude Code, Codex) and terminals
+	pkgver = 1.1.0
+	pkgrel = 1
+	url = https://github.com/BEX-Robotics/rezoom
+	arch = x86_64
+	license = MIT
+	makedepends = cmake
+	makedepends = ninja
+	makedepends = extra-cmake-modules
+	makedepends = git
+	depends = qt6-base
+	depends = kparts
+	depends = kcoreaddons
+	depends = konsole
+	optdepends = tmux: persistent plain terminals and tmux-session adoption
+	optdepends = reptyr: move running sessions in and out of the app live
+	optdepends = jq: freeze detection (Claude Code Notification hook)
+	source = git+https://github.com/BEX-Robotics/rezoom.git#tag=v1.1.0
+	sha256sums = SKIP
+
+pkgname = rezoom
