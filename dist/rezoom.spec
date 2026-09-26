@@ -36,9 +36,9 @@ floating group windows, archiving. Every session stays forever resumable.
 %{_datadir}/icons/hicolor/scalable/apps/rezoom.svg
 
 %changelog
-* Thu Aug 20 2026 Pavel <bugpwr@gmail.com> - 1.0.0-1
+* Thu Aug 20 2026 Pavel <254324686+pavel-bex@users.noreply.github.com> - 1.0.0-1
 - First stable release: presence, embedded terminals, adoption, floating
   groups, auto-adopt, auto-resume, freeze detection, live pull via reptyr
 
-* Tue Aug 19 2026 Pavel <bugpwr@gmail.com> - 0.1.0-1
+* Tue Aug 19 2026 Pavel <254324686+pavel-bex@users.noreply.github.com> - 0.1.0-1
 - Initial package

@@ -23,7 +23,7 @@ cat > "$PKG/DEBIAN/control" <<EOF
 Package: rezoom
 Version: $VERSION
 Architecture: $ARCH
-Maintainer: Pavel <bugpwr@gmail.com>
+Maintainer: Pavel <254324686+pavel-bex@users.noreply.github.com>
 Depends: libqt6widgets6, libqt6core6 | libqt6core6t64, libkf6parts6, libkf6coreaddons6, konsole-kpart, konsole
 Recommends: zsh, tmux, reptyr
 Section: utils
