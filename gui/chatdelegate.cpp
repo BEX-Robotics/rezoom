@@ -76,6 +76,32 @@ static QRect paintAvatar(QPainter *p, const QStyleOptionViewItem &opt, const QRe
     return avatar;
 }
 
+// Small pill naming the Claude account, drawn left of the timestamp — only
+// for chats in a non-default account. Returns the width it took.
+static int paintZonePill(QPainter *p, const QStyleOptionViewItem &opt, const QRect &line,
+                         int timeW, const QString &zone) {
+    if (zone.isEmpty())
+        return 0;
+
+    QFont f = opt.font;
+    f.setPointSizeF(opt.font.pointSizeF() * 0.78);
+    const QFontMetrics fm(f);
+    const QString text = fm.elidedText(zone, Qt::ElideRight, 80);
+    const int w = fm.horizontalAdvance(text) + 12;
+    const int h = fm.height() + 2;
+    const QRect pill(line.right() - timeW - w - 4, line.center().y() - h / 2, w, h);
+    QColor fill = opt.palette.highlight().color();
+    fill.setAlpha(60);
+    p->setPen(Qt::NoPen);
+    p->setBrush(fill);
+    p->drawRoundedRect(pill, h / 2.0, h / 2.0);
+    p->setFont(f);
+    p->setPen(opt.palette.text().color());
+    p->drawText(pill, Qt::AlignCenter, text);
+
+    return w + 8;
+}
+
 static void paintTitleLine(QPainter *p, const QStyleOptionViewItem &opt, const QRect &line1,
                            const QModelIndex &index, bool unread) {
 
@@ -85,8 +111,12 @@ static void paintTitleLine(QPainter *p, const QStyleOptionViewItem &opt, const Q
     p->setPen(opt.palette.text().color());
     const QString time = index.data(ChatListModel::TimeRole).toString();
     const int timeW = opt.fontMetrics.horizontalAdvance(time) + 6;
+    const int zoneW = paintZonePill(p, opt, line1, timeW, index.data(ChatListModel::ZoneRole).toString());
+    p->setFont(titleFont);
+    p->setPen(opt.palette.text().color());
     const QString title = QFontMetrics(titleFont).elidedText(
-        index.data(ChatListModel::TitleRole).toString(), Qt::ElideRight, line1.width() - timeW);
+        index.data(ChatListModel::TitleRole).toString(), Qt::ElideRight,
+        line1.width() - timeW - zoneW);
     p->drawText(line1, Qt::AlignLeft | Qt::AlignVCenter, title);
 
     QFont timeFont = opt.font;

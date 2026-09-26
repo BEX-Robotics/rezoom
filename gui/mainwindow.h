@@ -77,6 +77,8 @@ private:
     void resumeWhenGone(const QString &chatID, int pid, int triesLeft);
     void restartSession(const QString &chatID);
     void restartCurrent();
+    void runUnderZone(const QString &chatID);
+    void runUnderZoneCurrent();
     void selectChat(const QString &chatID);
     void showContextMenu(const QPoint &pos);
     void addCopyEntries(QMenu *menu, const Chat *c);

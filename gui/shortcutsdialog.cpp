@@ -24,6 +24,7 @@ static const ShortcutRow rows[] = {
     {"Ctrl+Shift+E", "Archive / unarchive"},
     {"Ctrl+Shift+D", "Float out / pull back"},
     {"Ctrl+Shift+U", "Restart session (e.g. after \"Restart to update\")"},
+    {"Ctrl+Shift+K", "Run under another Claude account"},
     {"Ctrl+Shift+O", "Pop out to Konsole"},
     {"Ctrl+Shift+W", "Close embedded pane (stays resumable)"},
     {"", "App"},

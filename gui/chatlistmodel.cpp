@@ -6,6 +6,7 @@
 #include "core/notifications.h"
 #include "core/sessionstore.h"
 #include "core/templates.h"
+#include "core/zones.h"
 
 #include "chatlistmodel.h"
 
@@ -152,6 +153,10 @@ QString ChatListModel::tooltipFor(const Chat &c, const Row &row) const {
         lines << where;
     }
 
+    if (!c.zone.isEmpty())
+        lines << tr("account: %1 (%2)").arg(c.zone.toHtmlEscaped(),
+                                           Chat::tildify(Zones::dirFor(c.zone)).toHtmlEscaped());
+
     if (!c.claudeSessionID.isEmpty())
         lines << QStringLiteral("<code>%1</code>").arg(shortSid(c.claudeSessionID));
 
@@ -187,6 +192,7 @@ ChatListModel::Row ChatListModel::makeRow(const Chat &c, const QString &status) 
     row.tintHex = Chat::tintColorHex(c.tint);
     row.monogram = c.monogram();
     row.kind = c.kind;
+    row.zone = c.zone;
     row.unread = unreadIDs.contains(c.id);
 
     // Live display overrides: konsole caption as title, busy-tail as preview.
@@ -313,6 +319,7 @@ QVariant ChatListModel::data(const QModelIndex &index, int role) const {
     case MonogramRole: return r.monogram;
     case UnreadRole:   return r.unread;
     case KindRole:     return r.kind;
+    case ZoneRole:     return r.zone;
     case Qt::ToolTipRole: return r.tooltip;
     }
 

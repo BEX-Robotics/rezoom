@@ -91,6 +91,9 @@ void ResumePane::setChat(const Chat &c, const QString &resolvedCommand, int pid)
     if (!c.cwd.isEmpty())
         parts << Chat::tildify(c.cwd);
 
+    if (!c.zone.isEmpty())
+        parts << tr("account: %1").arg(c.zone);
+
     if (!c.claudeSessionID.isEmpty())
         parts << c.claudeSessionID.left(8);
 

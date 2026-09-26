@@ -24,6 +24,7 @@ public:
         MonogramRole,
         UnreadRole,
         KindRole,
+        ZoneRole,  // account zone name, "" = default
     };
 
     ChatListModel(SessionStore *store, LiveRegistry *registry,
@@ -57,6 +58,7 @@ private:
         QString tintHex;
         QString monogram;
         QString kind;
+        QString zone;
         bool unread = false;
     };
 

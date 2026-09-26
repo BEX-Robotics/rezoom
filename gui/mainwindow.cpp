@@ -50,6 +50,7 @@
 #include "shortcutsdialog.h"
 #include "terminalpane.h"
 #include "windowraiser.h"
+#include "zonedialog.h"
 
 static void launchInKonsole(const QString &cwd, const QString &command) {
     ExternalTerminal::launch(cwd, command);
@@ -359,6 +360,7 @@ void MainWindow::buildShortcuts() {
     addChord("Ctrl+Shift+D", "Float chat", &MainWindow::floatToggleCurrent);
     addChord("Ctrl+Shift+O", "Pop out to Konsole", &MainWindow::popOutCurrent);
     addChord("Ctrl+Shift+U", "Restart session", &MainWindow::restartCurrent);
+    addChord("Ctrl+Shift+K", "Run under another Claude account", &MainWindow::runUnderZoneCurrent);
     addChord("Ctrl+Shift+W", "Close embedded pane", &MainWindow::closePaneCurrent);
     addChord("Ctrl+Shift+P", "Settings", &MainWindow::openSettings);
     addChord("Ctrl+Shift+/", "Keyboard shortcuts", &MainWindow::openShortcuts);
@@ -1149,6 +1151,11 @@ void MainWindow::showContextMenu(const QPoint &pos) {
     buildFloatMenu(&menu, id);
     chord(menu.addAction(tr("Restart session"), this, [this, id] { restartSession(id); }),
           "Ctrl+Shift+U");
+
+    if (c->kind == "claude" && c->host.isEmpty())
+        chord(menu.addAction(tr("Run under another Claude account\xe2\x80\xa6"), this,
+                             [this, id] { runUnderZone(id); }),
+              "Ctrl+Shift+K");
     chord(menu.addAction(tr("Pop out to Konsole"), this, [this, id] { popOut(id); }),
           "Ctrl+Shift+O");
 
@@ -1462,6 +1469,45 @@ void MainWindow::restartSession(const QString &chatID) {
 
     kill(pid, SIGTERM);
     resumeWhenGone(chatID, pid, 40);
+}
+
+// Move a chat to another Claude account zone — or, when it already has a
+// conversation (whose history can't leave its zone), start a new chat in
+// the same folder under that zone.
+void MainWindow::runUnderZone(const QString &chatID) {
+    const Chat *cp = store.find(chatID);
+
+    if (!cp || cp->kind != "claude" || !cp->host.isEmpty())
+        return;
+
+    const bool hasHistory = !cp->claudeSessionID.isEmpty();
+    ZoneDialog dialog(cp->zone, hasHistory, this);
+
+    if (dialog.exec() != QDialog::Accepted || dialog.chosenZone() == cp->zone)
+        return;
+
+    Chat c = *cp;
+
+    if (hasHistory) {
+        c = Chat::create("claude");
+        c.cwd = cp->cwd;
+        c.title = QDir(cp->cwd).dirName();
+    }
+
+    c.zone = dialog.chosenZone();
+
+    if (hasHistory)
+        store.add(c);
+    else
+        store.update(c);
+
+    selectChat(c.id);
+    launchChat(c.id);
+}
+
+void MainWindow::runUnderZoneCurrent() {
+    if (!currentID.isEmpty())
+        runUnderZone(currentID);
 }
 
 void MainWindow::restartCurrent() {

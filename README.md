@@ -37,6 +37,11 @@ theme, embeds real Konsole terminals.
   in; live ssh connections can be adopted; **Scan remote** lists the claude and tmux
   sessions on a host and adopts each one, resuming with `ssh -t host 'claude --resume …'`.
   Nothing connects until you click.
+- **More than one Claude login? Optional.** Right-click a chat → **Run under another
+  Claude account…** (`Ctrl+Shift+K`) creates a separate account (`~/.claude-<name>`,
+  optionally sharing your settings and CLAUDE.md), and you `/login` inside claude once.
+  Those chats carry a small account tag and always resume under their account.
+  With a single login, none of this appears.
 - **Group across screens.** Float chats into their own tabbed windows and pull them
   back; the layout survives restarts.
 - **Know when you're blocked.** One click in Settings installs a Claude Code
