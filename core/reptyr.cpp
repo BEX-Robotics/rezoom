@@ -74,9 +74,7 @@ Status status() {
 } // namespace Reptyr
 
 QString Reptyr::command(int pid) {
-    const bool hasChildren = !ProcessScout::children(pid).isEmpty();
-    return hasChildren ? QStringLiteral("reptyr -T %1").arg(pid)
-                       : QStringLiteral("reptyr %1").arg(pid);
+    return QStringLiteral("reptyr -T %1").arg(pid);
 }
 
 bool Reptyr::holding(int pid) {
