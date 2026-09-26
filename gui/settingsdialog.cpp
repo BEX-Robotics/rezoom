@@ -82,6 +82,14 @@ void SettingsDialog::addPrefChecks(QVBoxLayout *layout) {
     autoStart->setChecked(templates->autoStart());
     layout->addWidget(autoStart);
 
+    preTrust = new QCheckBox(tr("Skip Claude's \"trust this folder?\" prompt for folders "
+                                "already in Rezoom"), this);
+    preTrust->setToolTip(tr("Writes hasTrustDialogAccepted into ~/.claude.json for those "
+                            "folders, only while no claude is running. Off by default because "
+                            "it answers a security prompt on your behalf."));
+    preTrust->setChecked(templates->preTrust());
+    layout->addWidget(preTrust);
+
     addLiveMovesRow(layout);
 }
 
@@ -124,6 +132,7 @@ void SettingsDialog::accept() {
     templates->setAutoAdopt(autoAdopt->isChecked());
     templates->setResumeOnStart(resumeOnStart->isChecked());
     templates->setAutoStart(autoStart->isChecked());
+    templates->setPreTrust(preTrust->isChecked());
 
     if (liveMoves)
         templates->setLiveMoves(liveMoves->isChecked());

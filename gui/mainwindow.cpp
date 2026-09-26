@@ -165,7 +165,10 @@ void MainWindow::rememberRunning() {
 // auto-resume — the claude-restore trick. Only when NO claude is running
 // (live sessions rewrite ~/.claude.json), never under test overrides.
 void MainWindow::preTrustCwds(const QStringList &cwds) {
-    if (cwds.isEmpty() || !qEnvironmentVariable("REZOOM_CLAUDE_DIR").isEmpty())
+    if (!templates.preTrust() || cwds.isEmpty())
+        return;
+
+    if (!qEnvironmentVariable("REZOOM_CLAUDE_DIR").isEmpty())
         return;
 
     if (!registry.bySessionID().isEmpty())

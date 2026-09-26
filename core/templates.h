@@ -39,6 +39,11 @@ public:
     bool autoStart() const;
     void setAutoStart(bool v);
 
+    // Pre-answer claude's "trust this folder?" for tracked dirs by editing
+    // ~/.claude.json. Bypasses a security prompt, so opt-in, default off.
+    bool preTrust() const;
+    void setPreTrust(bool v);
+
     bool liveMoves() const; // reptyr beam-in / pop-out (Linux, when ready)
     void setLiveMoves(bool v);
 

@@ -26,5 +26,6 @@ private:
     QCheckBox *autoAdopt = 0;
     QCheckBox *resumeOnStart = 0;
     QCheckBox *autoStart = 0;
+    QCheckBox *preTrust = 0;
     QCheckBox *liveMoves = 0;
 };

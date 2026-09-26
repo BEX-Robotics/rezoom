@@ -35,6 +35,7 @@ reviewable change per commit, amend unpushed fixes instead of stacking.
 
 - The app only ever *reads* `~/.claude/` (registry, transcripts). Never write
   there except the documented Notification-hook merge into settings.json.
+  The one write to `~/.claude.json` (trust pre-accept) is opt-in, default off.
 - Never connect to a remote host without an explicit user click.
 - `SessionStore` mutations go through `mutate()` — decisions that must not
   race (dedup-then-add) happen inside the locked op, not before it.

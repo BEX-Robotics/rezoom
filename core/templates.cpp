@@ -153,6 +153,16 @@ void Templates::setAutoStart(bool v) {
                 .toUtf8());
 }
 
+bool Templates::preTrust() const {
+    QSettings s = confFile();
+    return s.value("general/pre_trust", false).toBool();
+}
+
+void Templates::setPreTrust(bool v) {
+    QSettings s = confFile();
+    s.setValue("general/pre_trust", v);
+}
+
 bool Templates::liveMoves() const {
     QSettings s = confFile();
     return s.value("general/live_moves", true).toBool();
