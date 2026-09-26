@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  release:
+    types: [published]
+
+permissions:
+  contents: write # release job attaches the .deb
+
+jobs:
+  linux:
+    name: Linux (Ubuntu 26.04, KF6)
+    runs-on: ubuntu-latest
+    container: ubuntu:26.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build dependencies
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            g++ cmake ninja-build pkg-config dpkg-dev \
+            qt6-base-dev libkf6parts-dev libkf6service-dev \
+            libkf6coreaddons-dev libkf6i18n-dev extra-cmake-modules
+      - name: Build
+        run: |
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          ninja -C build
+          build/rezoom --version
+          build/rezoom-cli --version
+      - name: Package .deb
+        run: scripts/make-deb.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rezoom-deb
+          path: dist/*.deb
+      - name: Attach .deb to the release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          apt-get install -y --no-install-recommends gh
+          gh release upload "${{ github.event.release.tag_name }}" dist/*.deb \
+            --repo "${{ github.repository }}" --clobber
+
+  macos:
+    name: macOS (no KF6, external terminals)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build dependencies
+        run: brew install qt ninja
+      - name: Build
+        run: |
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_PREFIX_PATH="$(brew --prefix qt)"
+          ninja -C build
+          build/rezoom --version
+          build/rezoom-cli --version
