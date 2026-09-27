@@ -1,4 +1,7 @@
+#include <QAbstractItemView>
+#include <QHelpEvent>
 #include <QPainter>
+#include <QToolTip>
 
 #include "chatlistmodel.h"
 
@@ -44,11 +47,41 @@ static void paintBackground(QPainter *p, const QStyleOptionViewItem &opt, const 
     }
 }
 
-static QRect paintAvatar(QPainter *p, const QStyleOptionViewItem &opt, const QRect &r,
-                         const QModelIndex &index) {
+static QRect zonePillRect(const QStyleOptionViewItem &opt, const QRect &line, int timeW,
+                          const QString &zone);
 
+// Every hot spot of a row, computed once so paint() and the per-part
+// tooltips can never disagree about where things are.
+struct RowGeometry {
+    QRect row;
+    QRect avatar;
+    QRect dot;
+    QRect line1;
+    QRect line2;
+    QRect unread;
+    QRect pill;
+};
+
+static RowGeometry rowGeometry(const QStyleOptionViewItem &opt, const QModelIndex &index) {
+    RowGeometry g = {};
+    g.row = opt.rect.adjusted(6, 3, -6, -3);
     const int d = 40;
-    const QRect avatar(r.left() + 6, r.center().y() - d / 2, d, d);
+    g.avatar = QRect(g.row.left() + 6, g.row.center().y() - d / 2, d, d);
+    g.dot = QRect(g.avatar.right() - 11, g.avatar.bottom() - 11, 12, 12);
+    const int textLeft = g.avatar.right() + 10;
+    g.line1 = QRect(textLeft, g.row.top() + 6, g.row.right() - textLeft - 4, g.row.height() / 2 - 6);
+    g.line2 = QRect(textLeft, g.row.center().y(), g.row.right() - textLeft - 4, g.row.height() / 2 - 4);
+    g.unread = QRect(g.row.right() - 14, g.line2.center().y() - 4, 9, 9);
+    const int timeW = opt.fontMetrics.horizontalAdvance(index.data(ChatListModel::TimeRole).toString()) + 6;
+    g.pill = zonePillRect(opt, g.line1, timeW, index.data(ChatListModel::ZoneRole).toString());
+
+    return g;
+}
+
+static void paintAvatar(QPainter *p, const QStyleOptionViewItem &opt, const RowGeometry &g,
+                        const QModelIndex &index) {
+
+    const QRect &avatar = g.avatar;
     p->setPen(Qt::NoPen);
     p->setBrush(QColor(index.data(ChatListModel::TintRole).toString()));
     p->drawEllipse(avatar);
@@ -62,7 +95,7 @@ static QRect paintAvatar(QPainter *p, const QStyleOptionViewItem &opt, const QRe
 
     // Presence dot on the avatar's rim.
     const QColor dot = statusColor(index.data(ChatListModel::StatusRole).toString());
-    const QRect dotRect(avatar.right() - 11, avatar.bottom() - 11, 12, 12);
+    const QRect &dotRect = g.dot;
     p->setPen(QPen(opt.palette.window().color(), 2));
     p->setBrush(dot.isValid() ? dot : opt.palette.window().color());
     p->drawEllipse(dotRect);
@@ -72,24 +105,40 @@ static QRect paintAvatar(QPainter *p, const QStyleOptionViewItem &opt, const QRe
         p->setBrush(Qt::NoBrush);
         p->drawEllipse(dotRect.adjusted(2, 2, -2, -2));
     }
-
-    return avatar;
 }
 
 // Small pill naming the Claude account, drawn left of the timestamp — only
 // for chats in a non-default account. Returns the width it took.
-static int paintZonePill(QPainter *p, const QStyleOptionViewItem &opt, const QRect &line,
-                         int timeW, const QString &zone) {
-    if (zone.isEmpty())
-        return 0;
-
+static QFont pillFont(const QStyleOptionViewItem &opt) {
     QFont f = opt.font;
     f.setPointSizeF(opt.font.pointSizeF() * 0.78);
-    const QFontMetrics fm(f);
-    const QString text = fm.elidedText(zone, Qt::ElideRight, 80);
-    const int w = fm.horizontalAdvance(text) + 12;
+    return f;
+}
+
+// Where the account pill sits — shared by painting and tooltip hit-testing.
+static QRect zonePillRect(const QStyleOptionViewItem &opt, const QRect &line, int timeW,
+                          const QString &zone) {
+    if (zone.isEmpty())
+        return {};
+
+    const QFontMetrics fm(pillFont(opt));
+    const int w = fm.horizontalAdvance(fm.elidedText(zone, Qt::ElideRight, 80)) + 12;
     const int h = fm.height() + 2;
-    const QRect pill(line.right() - timeW - w - 4, line.center().y() - h / 2, w, h);
+
+    return QRect(line.right() - timeW - w - 4, line.center().y() - h / 2, w, h);
+}
+
+static int paintZonePill(QPainter *p, const QStyleOptionViewItem &opt, const QRect &line,
+                         int timeW, const QString &zone) {
+    const QRect pill = zonePillRect(opt, line, timeW, zone);
+
+    if (pill.isNull())
+        return 0;
+
+    const QFont f = pillFont(opt);
+    const QString text = QFontMetrics(f).elidedText(zone, Qt::ElideRight, 80);
+    const int w = pill.width();
+    const int h = pill.height();
     QColor fill = opt.palette.highlight().color();
     fill.setAlpha(60);
     p->setPen(Qt::NoPen);
@@ -161,16 +210,71 @@ void ChatDelegate::paint(QPainter *p, const QStyleOptionViewItem &opt,
     p->save();
     p->setRenderHint(QPainter::Antialiasing);
 
-    const QRect r = opt.rect.adjusted(6, 3, -6, -3);
-    paintBackground(p, opt, r);
-    const QRect avatar = paintAvatar(p, opt, r, index);
+    const RowGeometry g = rowGeometry(opt, index);
+    paintBackground(p, opt, g.row);
+    paintAvatar(p, opt, g, index);
 
     const bool unread = index.data(ChatListModel::UnreadRole).toBool();
-    const int textLeft = avatar.right() + 10;
-    const QRect line1(textLeft, r.top() + 6, r.right() - textLeft - 4, r.height() / 2 - 6);
-    const QRect line2(textLeft, r.center().y(), r.right() - textLeft - 4, r.height() / 2 - 4);
-    paintTitleLine(p, opt, line1, index, unread);
-    paintPreviewLine(p, opt, r, line2, index, unread);
+    paintTitleLine(p, opt, g.line1, index, unread);
+    paintPreviewLine(p, opt, g.row, g.line2, index, unread);
 
     p->restore();
+}
+
+static QString statusMeaning(const QString &status) {
+    if (status == "busy")
+        return QObject::tr("Working right now.");
+
+    if (status == "live")
+        return QObject::tr("Open in a Rezoom pane. This agent doesn't report working or "
+                           "waiting, so the dot just means its terminal is up.");
+
+    if (status == "idle")
+        return QObject::tr("Finished and waiting for your reply.");
+
+    if (status == "shell")
+        return QObject::tr("At a shell prompt: the agent isn't running in it right now.");
+
+    if (status == "frozen")
+        return QObject::tr("Stopped by a usage limit. It can continue once the limit resets.");
+
+    return QObject::tr("Not running. Click the chat to resume it.");
+}
+
+// What the part under the mouse means; empty = use the row's hover card.
+static QString partTooltip(const QStyleOptionViewItem &opt, const QModelIndex &index,
+                           const QPoint &pos) {
+    const RowGeometry g = rowGeometry(opt, index);
+    const QString zone = index.data(ChatListModel::ZoneRole).toString();
+
+    if (g.dot.adjusted(-3, -3, 3, 3).contains(pos))
+        return statusMeaning(index.data(ChatListModel::StatusRole).toString());
+
+    if (index.data(ChatListModel::UnreadRole).toBool() && g.unread.adjusted(-4, -4, 4, 4).contains(pos))
+        return QObject::tr("Unread: this session finished something while you were in "
+                           "another chat. Opening it clears the mark.");
+
+    if (!g.pill.isNull() && g.pill.contains(pos))
+        return QObject::tr("Runs under the Claude account \"%1\" and always resumes "
+                           "with that account's login.").arg(zone);
+
+    if (g.avatar.contains(pos))
+        return QObject::tr("A name tag: the title's initials. The color only tells chats "
+                           "apart; the small dot on its edge is the status.");
+
+    return {};
+}
+
+bool ChatDelegate::helpEvent(QHelpEvent *e, QAbstractItemView *view,
+                             const QStyleOptionViewItem &opt, const QModelIndex &index) {
+    if (e->type() == QEvent::ToolTip) {
+        const QString tip = partTooltip(opt, index, e->pos());
+
+        if (!tip.isEmpty()) {
+            QToolTip::showText(e->globalPos(), tip, view);
+            return true;
+        }
+    }
+
+    return QStyledItemDelegate::helpEvent(e, view, opt, index);
 }
