@@ -67,12 +67,30 @@ ResumePane::ResumePane(QWidget *parent) : QWidget(parent) {
             [this] { emit raiseRequested(externalPID); });
     outer->addLayout(centered(raiseBtn));
 
+    addTidyRow(outer);
+
     note = new QLabel(this);
     note->setAlignment(Qt::AlignHCenter);
     note->setTextInteractionFlags(Qt::TextSelectableByMouse); // pids etc. are copyable
     note->setStyleSheet("color: palette(placeholder-text);");
     outer->addWidget(note);
     outer->addStretch(3);
+}
+
+// Done with it? A not-running chat can be filed away or forgotten here.
+void ResumePane::addTidyRow(QVBoxLayout *outer) {
+    auto *tidy = new QHBoxLayout;
+    archiveBtn = new QPushButton(this);
+    archiveBtn->setToolTip(QStringLiteral("Ctrl+Shift+E"));
+    connect(archiveBtn, &QPushButton::clicked, this, &ResumePane::archiveRequested);
+    forgetBtn = new QPushButton(tr("Forget\xe2\x80\xa6"), this); // "…"
+    forgetBtn->setToolTip(tr("Remove from Rezoom; the transcript stays on disk (Ctrl+Shift+Delete)"));
+    connect(forgetBtn, &QPushButton::clicked, this, &ResumePane::forgetRequested);
+    tidy->addStretch(1);
+    tidy->addWidget(archiveBtn);
+    tidy->addWidget(forgetBtn);
+    tidy->addStretch(1);
+    outer->addLayout(tidy);
 }
 
 void ResumePane::setChat(const Chat &c, const QString &resolvedCommand, int pid) {
@@ -105,6 +123,9 @@ void ResumePane::setChat(const Chat &c, const QString &resolvedCommand, int pid)
     const bool canBeam = external && Reptyr::supported();
     const bool canRaise = external && WindowRaiser::canRaise(pid);
     raiseBtn->setVisible(canRaise);
+    archiveBtn->setText(c.archived ? tr("Unarchive") : tr("Archive"));
+    archiveBtn->setVisible(!external); // only for chats that aren't running
+    forgetBtn->setVisible(!external);
     launch->setEnabled(true);
     beaming = canBeam;
 

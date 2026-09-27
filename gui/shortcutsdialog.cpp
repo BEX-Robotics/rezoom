@@ -22,6 +22,7 @@ static const ShortcutRow rows[] = {
     {"Ctrl+Shift+Return", "Resume / beam in / connect"},
     {"Ctrl+Shift+R", "Rename"},
     {"Ctrl+Shift+E", "Archive / unarchive"},
+    {"Ctrl+Shift+Delete", "Forget chat (transcript stays on disk)"},
     {"Ctrl+Shift+D", "Float out / pull back"},
     {"Ctrl+Shift+U", "Restart session (e.g. after \"Restart to update\")"},
     {"Ctrl+Shift+K", "Run under another Claude account"},

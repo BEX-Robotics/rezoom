@@ -86,6 +86,8 @@ private:
     void editCommand(const QString &chatID);
     void archiveChat(const QString &chatID, bool on);
     void deleteChat(const QString &chatID);
+    void forgetCurrent();
+    void selectRowNear(int row);
     void popOut(const QString &chatID);
     void raiseExternal(int pid);
     void scanRemote(const QString &chatID);

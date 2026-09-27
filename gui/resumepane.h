@@ -5,6 +5,7 @@
 
 class QLabel;
 class QPushButton;
+class QVBoxLayout;
 
 // Shown for a chat with no live embedded terminal: the resumable command and
 // a big button to run it. For SSH chats the click IS the consent — nothing
@@ -21,8 +22,12 @@ signals:
     void launchRequested();
     void raiseRequested(int externalPID);
     void pullRequested(); // "beam it in": live pull, verified fallback
+    void archiveRequested(); // toggles archived
+    void forgetRequested();
 
 private:
+    void addTidyRow(QVBoxLayout *outer);
+
     QLabel *avatar = 0;
     QLabel *title = 0;
     QLabel *info = 0;
@@ -30,6 +35,8 @@ private:
     QLabel *note = 0;
     QPushButton *launch = 0;
     QPushButton *raiseBtn = 0;
+    QPushButton *archiveBtn = 0;
+    QPushButton *forgetBtn = 0;
     int externalPID = 0;
     bool beaming = false; // external session → the big button beams instead of launching
 };

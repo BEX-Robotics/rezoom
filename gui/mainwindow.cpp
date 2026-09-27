@@ -361,6 +361,7 @@ void MainWindow::buildShortcuts() {
     addChord("Ctrl+Shift+O", "Pop out to Konsole", &MainWindow::popOutCurrent);
     addChord("Ctrl+Shift+U", "Restart session", &MainWindow::restartCurrent);
     addChord("Ctrl+Shift+K", "Run under another Claude account", &MainWindow::runUnderZoneCurrent);
+    addChord("Ctrl+Shift+Del", "Forget chat", &MainWindow::forgetCurrent);
     addChord("Ctrl+Shift+W", "Close embedded pane", &MainWindow::closePaneCurrent);
     addChord("Ctrl+Shift+P", "Settings", &MainWindow::openSettings);
     addChord("Ctrl+Shift+/", "Keyboard shortcuts", &MainWindow::openShortcuts);
@@ -487,8 +488,15 @@ ChatView *MainWindow::viewFor(const QString &chatID) {
             [this](int pid) { raiseExternal(pid); });
     connect(view->resume(), &ResumePane::pullRequested, this,
             [this, chatID] { pullInLive(chatID); });
-    refreshView(chatID);
+    connect(view->resume(), &ResumePane::archiveRequested, this, [this, chatID] {
+        const Chat *c = store.find(chatID);
 
+        if (c)
+            archiveChat(chatID, !c->archived);
+    });
+    connect(view->resume(), &ResumePane::forgetRequested, this,
+            [this, chatID] { deleteChat(chatID); });
+    refreshView(chatID);
     return view;
 }
 
@@ -1180,7 +1188,8 @@ void MainWindow::showContextMenu(const QPoint &pos) {
     chord(menu.addAction(c->archived ? tr("Unarchive") : tr("Archive"), this,
                          [this, id, on = !c->archived] { archiveChat(id, on); }),
           "Ctrl+Shift+E");
-    menu.addAction(tr("Delete\xe2\x80\xa6"), this, [this, id] { deleteChat(id); });
+    chord(menu.addAction(tr("Forget\xe2\x80\xa6"), this, [this, id] { deleteChat(id); }),
+          "Ctrl+Shift+Del");
     menu.exec(list->viewport()->mapToGlobal(pos));
 }
 
@@ -1239,7 +1248,22 @@ void MainWindow::archiveChat(const QString &chatID, bool on) {
 
     Chat c = *cp;
     c.archived = on;
+    const int row = list->currentIndex().row();
     store.update(c);
+
+    if (chatID == currentID) // it left this view — keep the cursor in place
+        selectRowNear(row);
+}
+
+// After the current chat leaves the list, land on its neighbour so tidying
+// up several chats is click, click, click.
+void MainWindow::selectRowNear(int row) {
+    const int count = model->rowCount();
+
+    if (!count || row < 0)
+        return;
+
+    list->setCurrentIndex(model->index(qMin(row, count - 1), 0));
 }
 
 void MainWindow::deleteChat(const QString &chatID) {
@@ -1248,14 +1272,13 @@ void MainWindow::deleteChat(const QString &chatID) {
     if (!cp)
         return;
 
-    const auto answer = QMessageBox::question(
-        this, tr("Delete chat"),
-        tr("Remove \"%1\" from Rezoom?\nThe claude transcript itself is not touched.")
-            .arg(cp->title));
-
-    if (answer != QMessageBox::Yes)
+    if (!askSelectable(this, tr("Forget chat"),
+                       tr("Forget \"%1\"? It disappears from Rezoom.\n\nClaude's transcript "
+                          "stays on disk, so you can bring it back from Adopt \xe2\x86\x92 "
+                          "History.").arg(cp->title))) // \xe2\x86\x92 = "→"
         return;
 
+    const int row = chatID == currentID ? list->currentIndex().row() : -1;
     ChatView *view = views.take(chatID);
 
     if (view) {
@@ -1273,6 +1296,12 @@ void MainWindow::deleteChat(const QString &chatID) {
 
     panes.remove(chatID);
     store.remove(chatID);
+    selectRowNear(row);
+}
+
+void MainWindow::forgetCurrent() {
+    if (!currentID.isEmpty())
+        deleteChat(currentID);
 }
 
 // Move a session running outside Rezoom into an embedded pane without
