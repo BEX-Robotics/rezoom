@@ -44,6 +44,11 @@ theme, embeds real Konsole terminals.
   With a single login, none of this appears.
 - **Group across screens.** Float chats into their own tabbed windows and pull them
   back; the layout survives restarts.
+- **Know when something's wrong.** A session frozen by Ctrl+Z shows as *suspended*
+  (the kernel says so; claude's own status can't) with **▶ Continue** in its own
+  terminal or *Resume in Rezoom instead*; a "busy" session whose transcript hasn't
+  moved for two hours shows *no progress*; an ssh that ends inside a Rezoom pane
+  gets a bar with **Reconnect** (a click, never automatic).
 - **Know when you're blocked.** One click in Settings installs a Claude Code
   Notification hook; sessions frozen on a usage limit turn red with the reset time.
 - **Keyboard first.** Everything has a `Ctrl+Shift` chord (`Ctrl+Shift+/` lists them),

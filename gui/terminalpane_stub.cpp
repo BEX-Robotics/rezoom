@@ -38,3 +38,10 @@ void TerminalPane::poll() {
 
 void TerminalPane::typeCommand(const QString &) {
 }
+
+bool TerminalPane::hasEndedSsh() const {
+    return false;
+}
+
+void TerminalPane::reconnectSsh() {
+}

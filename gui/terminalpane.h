@@ -7,6 +7,9 @@ class ReadOnlyPart;
 }
 
 class TerminalInterface;
+class QFrame;
+class QLabel;
+class QVBoxLayout;
 
 // One embedded Konsole terminal (konsolepart KPart) hosting one chat.
 // Watches its shell's process tree so claude/ssh/tmux started inside are
@@ -29,11 +32,16 @@ public:
     // Type a command into the pane's existing shell (no new shell).
     void typeCommand(const QString &command);
 
+    // An ssh that ran in this pane has exited and its banner is showing.
+    bool hasEndedSsh() const;
+    void reconnectSsh(); // retype exactly the command that ended
+
 signals:
     void terminated(const QString &chatID);
     void childClaude(const QString &chatID, int claudePID);
     void childCodex(const QString &chatID, int codexPID);
     void captionChanged(const QString &chatID, const QString &caption);
+    void sshEnded(const QString &chatID, bool ended); // banner shown / cleared
     void childSsh(const QString &chatID, const QStringList &cmdline);
     void childTmux(const QString &chatID, const QStringList &cmdline);
 
@@ -45,6 +53,10 @@ private slots:
 
 private:
     void emitTerminated();
+    void trackSsh(int pid, const QStringList &cmdline);
+    void buildSshBanner(QVBoxLayout *layout);
+    void showSshBanner();
+    void hideSshBanner();
 
     QString id;
     QString error;
@@ -53,6 +65,10 @@ private:
     QTimer timer;
     int shell = 0;
     int lastClaudePID = 0;
+    int sshPID = 0;
+    QStringList sshCommand;
+    QFrame *banner = 0;
+    QLabel *bannerText = 0;
     int lastCodexPID = 0;
     bool reportedSsh = false;
     bool reportedTmux = false;

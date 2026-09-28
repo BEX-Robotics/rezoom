@@ -1,6 +1,11 @@
 #include <KParts/ReadOnlyPart>
 #include <KPluginFactory>
 #include <KPluginMetaData>
+#include <QFrame>
+#include <QHBoxLayout>
+#include <QLabel>
+#include <QPushButton>
+#include <QRegularExpression>
 #include <QVBoxLayout>
 #include <kde_terminal_interface.h>
 
@@ -13,6 +18,8 @@ TerminalPane::TerminalPane(const QString &chatID, const QString &profile, QWidge
     : QWidget(parent), id(chatID) {
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(0);
+    buildSshBanner(layout);
 
     const auto result =
         KPluginFactory::loadFactory(KPluginMetaData(QStringLiteral("kf6/parts/konsolepart")));
@@ -135,12 +142,99 @@ void TerminalPane::poll() {
                 lastCodexPID = p.pid;
                 emit childCodex(id, p.pid);
             }
-        } else if (p.comm == "ssh" && !reportedSsh) {
-            reportedSsh = true;
-            emit childSsh(id, p.cmdline);
+        } else if (p.comm == "ssh") {
+            trackSsh(p.pid, p.cmdline);
+
+            if (!reportedSsh) {
+                reportedSsh = true;
+                emit childSsh(id, p.cmdline);
+            }
         } else if (p.comm.startsWith("tmux") && !reportedTmux) {
             reportedTmux = true;
             emit childTmux(id, p.cmdline);
         }
     }
+
+    if (sshPID > 0 && !LiveRegistry::pidAlive(sshPID)) {
+        sshPID = 0;
+        showSshBanner();
+    }
+}
+
+// A (new) ssh is running in this pane — remember exactly how it was started.
+void TerminalPane::trackSsh(int pid, const QStringList &cmdline) {
+    if (pid == sshPID)
+        return;
+
+    sshPID = pid;
+    sshCommand = cmdline;
+    hideSshBanner(); // a fresh connection supersedes an "ended" notice
+}
+
+// Rezoom can't tell a dropped connection from a typed `exit`, so this says
+// "ended" and only offers — reconnecting is always the user's click.
+void TerminalPane::showSshBanner() {
+    const QString dest = ProcessScout::sshDestination(sshCommand);
+
+    // \xc2\xb7 = UTF-8 for "·"
+    bannerText->setText(tr("ssh to %1 ended \xc2\xb7 Ctrl+Shift+Return reconnects")
+                            .arg(dest.isEmpty() ? tr("the remote host") : dest));
+    banner->show();
+    emit sshEnded(id, true);
+}
+
+void TerminalPane::hideSshBanner() {
+    if (banner->isHidden())
+        return;
+
+    banner->hide();
+    emit sshEnded(id, false);
+}
+
+bool TerminalPane::hasEndedSsh() const {
+    return !banner->isHidden();
+}
+
+static QString shellQuote(const QString &arg) {
+    static const QRegularExpression safe("^[A-Za-z0-9@%+=:,./_-]+$");
+
+    if (safe.match(arg).hasMatch())
+        return arg;
+
+    QString q = arg;
+    q.replace('\'', QLatin1String("'\\''"));
+    return "'" + q + "'";
+}
+
+void TerminalPane::reconnectSsh() {
+    QStringList parts;
+
+    for (const QString &a : sshCommand)
+        parts << shellQuote(a);
+
+    hideSshBanner();
+    typeCommand(parts.join(' '));
+}
+
+// Thin bar above the terminal: what ended, Reconnect, dismiss.
+void TerminalPane::buildSshBanner(QVBoxLayout *layout) {
+    banner = new QFrame(this);
+    banner->setStyleSheet("QFrame { background: palette(alternate-base); "
+                          "border-bottom: 1px solid palette(mid); }");
+    auto *row = new QHBoxLayout(banner);
+    row->setContentsMargins(10, 4, 6, 4);
+    bannerText = new QLabel(banner);
+    bannerText->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    row->addWidget(bannerText, 1);
+    auto *reconnect = new QPushButton(tr("Reconnect"), banner);
+    reconnect->setToolTip(QStringLiteral("Ctrl+Shift+Return"));
+    connect(reconnect, &QPushButton::clicked, this, &TerminalPane::reconnectSsh);
+    row->addWidget(reconnect);
+    auto *dismiss = new QPushButton(QString::fromUtf8("\xe2\x9c\x95"), banner); // "✕"
+    dismiss->setFlat(true);
+    dismiss->setToolTip(tr("Dismiss"));
+    connect(dismiss, &QPushButton::clicked, this, &TerminalPane::hideSshBanner);
+    row->addWidget(dismiss);
+    banner->hide();
+    layout->addWidget(banner);
 }

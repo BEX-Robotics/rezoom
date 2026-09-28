@@ -390,6 +390,11 @@ void MainWindow::actOnCurrent() {
     if (pane && continueInPane(pane))
         return;
 
+    if (pane && pane->hasEndedSsh()) {
+        pane->reconnectSsh();
+        return;
+    }
+
     if (pane) { // already running here — just focus it
         ChatView *view = views.value(currentID);
         FloatWindow *w = view ? floatOf(view) : 0;
@@ -594,6 +599,14 @@ void MainWindow::onChatSelected() {
 }
 
 void MainWindow::wirePane(TerminalPane *pane) {
+    connect(pane, &TerminalPane::sshEnded, this, [this](const QString &id, bool ended) {
+        if (ended)
+            sshEndedChats.insert(id);
+        else
+            sshEndedChats.remove(id);
+
+        model->setSshEnded(sshEndedChats);
+    });
     connect(pane, &TerminalPane::terminated, this, &MainWindow::onPaneTerminated);
     connect(pane, &TerminalPane::childClaude, this, &MainWindow::onChildClaude);
     connect(pane, &TerminalPane::childCodex, this, &MainWindow::onChildCodex);
@@ -678,6 +691,9 @@ void MainWindow::onPaneTerminated(const QString &chatID) {
 
     if (liveTitles.remove(chatID))
         pushLiveTitles();
+
+    if (sshEndedChats.remove(chatID))
+        model->setSshEnded(sshEndedChats);
     ChatView *view = views.value(chatID);
 
     if (view)

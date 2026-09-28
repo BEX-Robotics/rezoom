@@ -150,6 +150,7 @@ private:
     QHash<QString, QString> lastStatus;   // chatID → last seen live status
     QHash<QString, QString> liveTitles;   // chatID → embedded pane caption (display only)
     QHash<QString, QString> extTitles;    // chatID → external konsole window title
+    QSet<QString> sshEndedChats;          // panes showing an 'ssh ended' bar
     QHash<QString, QString> livePreviews; // chatID → busy transcript tail (display only)
     QString currentID;
     bool shuttingDown = false;
