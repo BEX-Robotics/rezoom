@@ -154,6 +154,9 @@ void MainWindow::startTimers() {
     // health is re-read on a slow timer too; unchanged rows update in place.
     auto *healthTimer = new QTimer(this);
     connect(healthTimer, &QTimer::timeout, this, [this] {
+        scanExternalSsh();
+        refreshExternalTitles();
+        updatePaneBanners();
         model->rebuild();
         updateAttention();
 
@@ -436,6 +439,11 @@ void MainWindow::actOnCurrent() {
         return;
     }
 
+    if (pane && pane->hasExternalBanner()) {
+        beamIntoPane(currentID, externalPID(*store.find(currentID)));
+        return;
+    }
+
     if (pane) { // already running here — just focus it
         ChatView *view = views.value(currentID);
         FloatWindow *w = view ? floatOf(view) : 0;
@@ -456,7 +464,7 @@ void MainWindow::actOnCurrent() {
 
     if (live && ProcessScout::isStopped(live->pid))
         continueSuspended(currentID, live->pid);
-    else if (live)
+    else if (externalPID(*c) > 0)
         pullInLive(currentID); // running outside — beam it in
     else
         launchChat(currentID);
@@ -593,14 +601,9 @@ void MainWindow::refreshView(const QString &chatID) {
     if (!view || !c || view->terminal())
         return;
 
-    int externalPID = 0;
     const auto live = liveFor(*c);
-
-    if (live)
-        externalPID = live->pid;
-
     const SessionHealth::Health health = live ? SessionHealth::of(*live) : SessionHealth::Health{};
-    view->resume()->setChat(*c, templates.resolveFor(*c), externalPID, health);
+    view->resume()->setChat(*c, templates.resolveFor(*c), externalPID(*c), health);
 }
 
 void MainWindow::selectChat(const QString &chatID) {
@@ -640,6 +643,7 @@ void MainWindow::onChatSelected() {
 }
 
 void MainWindow::wirePane(TerminalPane *pane) {
+    connect(pane, &TerminalPane::beamHereRequested, this, &MainWindow::beamIntoPane);
     connect(pane, &TerminalPane::sshEnded, this, [this](const QString &id, bool ended) {
         if (ended)
             sshEndedChats.insert(id);
@@ -965,6 +969,92 @@ std::optional<LiveEntry> MainWindow::liveFor(const Chat &c) const {
     return all.first();
 }
 
+// The process running this chat outside Rezoom: its claude/codex (from the
+// registry) or, for ssh chats, the ssh client in some terminal window.
+int MainWindow::externalPID(const Chat &c) const {
+    TerminalPane *pane = panes.value(c.id);
+
+    // A pane counts only while an agent runs in it; an idle shell left
+    // behind (claude exited there) must not hide the session elsewhere.
+    if (pane && pane->hasAgent())
+        return 0;
+
+    if (const auto live = liveFor(c))
+        return live->pid;
+
+    return sshPIDs.value(c.id);
+}
+
+// ssh sessions started by hand in terminal windows: adopt each distinct
+// connection as a chat (auto-adopt on), remember which process runs it, and
+// read a claude inside it from the window title — all local, nothing connects.
+void MainWindow::scanExternalSsh() {
+    const QHash<int, QString> titles = KonsoleTitles::byKonsolePid();
+    QHash<QString, int> pids;
+    QHash<QString, QString> states;
+    QList<Chat> fresh;
+
+    for (const auto &p : ProcessScout::interactiveSsh()) {
+        const QString entry = p.cmdline.join(' ');
+        const Chat *c = sshChatFor(entry, fresh);
+
+        if (!c)
+            continue;
+
+        pids.insert(c->id, p.pid);
+        const int kpid = ProcessScout::ancestorPidOfComm(p.pid, QStringLiteral("konsole"));
+        const QString state = KonsoleTitles::claudeStateFromTitle(titles.value(kpid));
+        states.insert(c->id, state.isEmpty() ? QStringLiteral("live") : state);
+    }
+
+    if (!fresh.isEmpty())
+        store.addBatch(fresh);
+
+    noteRemoteTransitions(states);
+    sshPIDs = pids;
+
+    if (states != sshStates) {
+        sshStates = states;
+        model->setRemoteStates(sshStates);
+    }
+}
+
+// The chat an ssh command belongs to; queues a new one when auto-adopt is on.
+const Chat *MainWindow::sshChatFor(const QString &entry, QList<Chat> &fresh) {
+    for (const Chat &c : store.chats())
+        if (c.kind == "ssh" && c.entryCommand == entry && c.claudeSessionID.isEmpty())
+            return &c;
+
+    for (const Chat &c : fresh)
+        if (c.entryCommand == entry)
+            return &c;
+
+    if (!templates.autoAdopt())
+        return 0;
+
+    Chat c = Chat::create("ssh");
+    c.entryCommand = entry;
+    c.host = ProcessScout::sshDestination(entry.split(' ', Qt::SkipEmptyParts));
+    c.title = c.host.isEmpty() ? entry : c.host;
+    c.preview = entry;
+    fresh.append(c);
+
+    return &fresh.last();
+}
+
+// A claude over ssh going from working to idle while you look elsewhere
+// is unread, exactly like a local one.
+void MainWindow::noteRemoteTransitions(const QHash<QString, QString> &states) {
+    QSet<QString> next = unread;
+
+    for (auto it = states.constBegin(); it != states.constEnd(); ++it)
+        if (sshStates.value(it.key()) == "busy" && it.value() == "idle" && it.key() != currentID)
+            next.insert(it.key());
+
+    if (next != unread)
+        setUnread(next);
+}
+
 // Mirror each external session's Konsole window title (claude's activity
 // line — the only name the user has actually seen) as the chat's live title.
 void MainWindow::refreshExternalTitles() {
@@ -972,15 +1062,12 @@ void MainWindow::refreshExternalTitles() {
     QHash<QString, QString> fresh;
 
     for (const Chat &c : store.chats()) {
-        if (panes.contains(c.id) || c.claudeSessionID.isEmpty())
+        const int pid = externalPID(c);
+
+        if (pid <= 0)
             continue;
 
-        const auto live = liveFor(c);
-
-        if (!live)
-            continue;
-
-        const int kpid = ProcessScout::ancestorPidOfComm(live->pid, QStringLiteral("konsole"));
+        const int kpid = ProcessScout::ancestorPidOfComm(pid, QStringLiteral("konsole"));
         const QString t = KonsoleTitles::stripStatusGlyph(titles.value(kpid));
 
         if (!t.isEmpty())
@@ -997,8 +1084,12 @@ void MainWindow::refreshExternalTitles() {
 void MainWindow::pushLiveTitles() {
     QHash<QString, QString> merged = extTitles;
 
-    for (auto it = liveTitles.constBegin(); it != liveTitles.constEnd(); ++it)
-        merged.insert(it.key(), it.value()); // embedded captions win
+    for (auto it = liveTitles.constBegin(); it != liveTitles.constEnd(); ++it) {
+        TerminalPane *pane = panes.value(it.key());
+
+        if (pane && pane->hasAgent()) // an idle shell's caption says nothing
+            merged.insert(it.key(), it.value()); // embedded captions win
+    }
 
     model->setLiveTitles(merged);
 }
@@ -1283,11 +1374,9 @@ void MainWindow::showContextMenu(const QPoint &pos) {
     chord(menu.addAction(tr("Pop out to Konsole"), this, [this, id] { popOut(id); }),
           "Ctrl+Shift+O");
 
-    const auto live = liveFor(*c);
+    const int pid = externalPID(*c);
 
-    if (live && !panes.contains(id)) {
-        const int pid = live->pid;
-
+    if (pid > 0 && !panes.contains(id)) {
         if (WindowRaiser::canRaise(pid))
             menu.addAction(tr("Go to its window"), this, [this, pid] { raiseExternal(pid); });
 
@@ -1427,13 +1516,18 @@ void MainWindow::forgetCurrent() {
 void MainWindow::pullInLive(const QString &chatID) {
     const Chat *c = store.find(chatID);
 
-    if (!c || panes.contains(chatID))
+    if (!c)
         return;
 
-    const auto live = registry.entryForSession(c->claudeSessionID);
+    const int pid = externalPID(*c);
 
-    if (!live)
+    if (pid <= 0)
         return;
+
+    if (panes.contains(chatID)) { // idle pane left behind — reuse it
+        beamIntoPane(chatID, pid);
+        return;
+    }
 
     // Preflight: never attempt a move that can't succeed — no mystery
     // failures. A red preflight (or the feature off) goes straight to
@@ -1444,13 +1538,47 @@ void MainWindow::pullInLive(const QString &chatID) {
         const QString why = !templates.liveMoves()
             ? tr("Live moves are turned off in Settings.")
             : rs.reason;
-        offerPullRecovery(chatID, live->pid, why, templates.liveMoves() ? rs.fixCommand : QString());
+        offerPullRecovery(chatID, pid, why, templates.liveMoves() ? rs.fixCommand : QString());
         return;
     }
 
-    const int pid = live->pid;
     launchChat(chatID, Reptyr::command(pid));
     QTimer::singleShot(2500, this, [this, chatID, pid] { verifyPull(chatID, pid); });
+}
+
+// Beam an external session into this chat's existing (idle) pane: type the
+// reptyr command into its shell instead of opening a second pane.
+void MainWindow::beamIntoPane(const QString &chatID, int pid) {
+    TerminalPane *pane = panes.value(chatID);
+
+    if (!pane || pid <= 0)
+        return;
+
+    const Reptyr::Status rs = Reptyr::status();
+
+    if (!templates.liveMoves() || !rs.ready) {
+        const QString why = !templates.liveMoves() ? tr("Live moves are turned off in Settings.")
+                                                   : rs.reason;
+        offerPullRecovery(chatID, pid, why, templates.liveMoves() ? rs.fixCommand : QString());
+        return;
+    }
+
+    pane->hideExternalBanner();
+    pane->typeCommand(Reptyr::command(pid));
+    QTimer::singleShot(2500, this, [this, chatID, pid] { verifyPull(chatID, pid); });
+}
+
+// Idle panes whose conversation now runs in another window say so.
+void MainWindow::updatePaneBanners() {
+    for (auto it = panes.constBegin(); it != panes.constEnd(); ++it) {
+        const Chat *c = store.find(it.key());
+        const int pid = c ? externalPID(*c) : 0;
+
+        if (pid > 0)
+            it.value()->showExternalBanner(pid);
+        else
+            it.value()->hideExternalBanner();
+    }
 }
 
 // After reptyr -T the old Konsole window is a husk: frozen last frame,

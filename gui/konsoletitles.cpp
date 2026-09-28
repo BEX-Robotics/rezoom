@@ -64,6 +64,21 @@ int KonsoleTitles::sessionCount(int) {
 
 #endif
 
+QString KonsoleTitles::claudeStateFromTitle(const QString &title) {
+    if (title.size() < 3 || title.at(1) != ' ')
+        return {};
+
+    const QChar g = title.at(0);
+
+    if (g == QChar(0x2733)) // ✳
+        return QStringLiteral("idle");
+
+    if (g.unicode() >= 0x25D0 && g.unicode() <= 0x25D3) // ◐ ◑ ◒ ◓
+        return QStringLiteral("busy");
+
+    return {};
+}
+
 QString KonsoleTitles::stripStatusGlyph(QString title) {
     // A leading spinner glyph is one symbol char + space; letters (Hebrew
     // included) and digits are real content and stay.

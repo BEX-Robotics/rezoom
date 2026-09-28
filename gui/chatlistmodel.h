@@ -41,6 +41,7 @@ public:
     void setUnread(const QSet<QString> &ids);
     void setEmbedded(const QSet<QString> &ids);
     void setSshEnded(const QSet<QString> &ids);
+    void setRemoteStates(const QHash<QString, QString> &states);
     void setLiveTitles(const QHash<QString, QString> &titles);
     void setLivePreviews(const QHash<QString, QString> &previews);
     QString idAt(const QModelIndex &index) const;
@@ -82,6 +83,7 @@ private:
     QSet<QString> unreadIDs;
     QSet<QString> embeddedIDs;
     QSet<QString> sshEndedIDs; // panes whose ssh exited (until reconnect/dismiss)
+    QHash<QString, QString> remoteStates; // external ssh chats: busy / idle / live
     QHash<QString, QString> liveTitles;   // display-only, e.g. konsole caption
     QHash<QString, QString> livePreviews; // display-only, busy-session tail
     bool showArchived = false;

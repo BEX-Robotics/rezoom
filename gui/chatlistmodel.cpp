@@ -263,6 +263,11 @@ void ChatListModel::applyHealthPreview(Row &row, const SessionHealth::Health &h)
         row.preview = tr("ssh ended \xc2\xb7 Ctrl+Shift+Return reconnects");
 }
 
+void ChatListModel::setRemoteStates(const QHash<QString, QString> &states) {
+    remoteStates = states;
+    rebuild();
+}
+
 void ChatListModel::setSshEnded(const QSet<QString> &ids) {
     sshEndedIDs = ids;
     rebuild();
@@ -286,6 +291,10 @@ QList<ChatListModel::Row> ChatListModel::buildRows() const {
         // Codex & friends have no live registry — an open pane means "live".
         if (!live && embeddedIDs.contains(c.id))
             status = QStringLiteral("live");
+
+        // ssh in a terminal window, with claude's state read from its title.
+        if (!live && !embeddedIDs.contains(c.id) && remoteStates.contains(c.id))
+            status = remoteStates.value(c.id);
 
         SessionHealth::Health health = {};
 

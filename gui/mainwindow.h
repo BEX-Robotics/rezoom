@@ -66,6 +66,8 @@ private:
     void launchChat(const QString &chatID, const QString &commandOverride = QString(),
                     bool quiet = false); // quiet = background: no reorder, no focus
     void pullInLive(const QString &chatID);
+    void beamIntoPane(const QString &chatID, int pid);
+    void updatePaneBanners();
     void verifyPull(const QString &chatID, int pid);
     void closeHusk(int movedPid);
     void offerPullRecovery(const QString &chatID, int pid, const QString &why,
@@ -116,6 +118,10 @@ private:
     void scanChatDelta(const Chat &c, RegistryDeltas &d);
     void wirePane(TerminalPane *pane);
     std::optional<LiveEntry> liveFor(const Chat &c) const;
+    int externalPID(const Chat &c) const;
+    void scanExternalSsh();
+    const Chat *sshChatFor(const QString &entry, QList<Chat> &fresh);
+    void noteRemoteTransitions(const QHash<QString, QString> &states);
     void refreshExternalTitles();
     void pushLiveTitles();
     void setUnread(const QSet<QString> &ids);
@@ -152,6 +158,8 @@ private:
     QHash<QString, QString> liveTitles;   // chatID → embedded pane caption (display only)
     QHash<QString, QString> extTitles;    // chatID → external konsole window title
     QSet<QString> sshEndedChats;          // panes showing an 'ssh ended' bar
+    QHash<QString, int> sshPIDs;          // chatID → ssh client in an external terminal
+    QHash<QString, QString> sshStates;    // chatID → busy / idle (claude inside) / live
     QHash<QString, QString> livePreviews; // chatID → busy transcript tail (display only)
     QString currentID;
     bool shuttingDown = false;

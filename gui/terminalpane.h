@@ -9,6 +9,7 @@ class ReadOnlyPart;
 class TerminalInterface;
 class QFrame;
 class QLabel;
+class QPushButton;
 class QVBoxLayout;
 
 // One embedded Konsole terminal (konsolepart KPart) hosting one chat.
@@ -36,12 +37,19 @@ public:
     bool hasEndedSsh() const;
     void reconnectSsh(); // retype exactly the command that ended
 
+    // Is claude/codex actually running in this pane (vs. an idle shell)?
+    bool hasAgent() const;
+    void showExternalBanner(int pid);
+    void hideExternalBanner();
+    bool hasExternalBanner() const { return bannerMode == BannerMode::External; }
+
 signals:
     void terminated(const QString &chatID);
     void childClaude(const QString &chatID, int claudePID);
     void childCodex(const QString &chatID, int codexPID);
     void captionChanged(const QString &chatID, const QString &caption);
     void sshEnded(const QString &chatID, bool ended); // banner shown / cleared
+    void beamHereRequested(const QString &chatID, int externalPID);
     void childSsh(const QString &chatID, const QStringList &cmdline);
     void childTmux(const QString &chatID, const QStringList &cmdline);
 
@@ -57,6 +65,7 @@ private:
     void buildSshBanner(QVBoxLayout *layout);
     void showSshBanner();
     void hideSshBanner();
+    void bannerAction();
 
     QString id;
     QString error;
@@ -67,7 +76,12 @@ private:
     int lastClaudePID = 0;
     int sshPID = 0;
     QStringList sshCommand;
+    enum class BannerMode { None, SshEnded, External };
+
     QFrame *banner = 0;
+    QPushButton *bannerButton = 0;
+    BannerMode bannerMode = BannerMode::None;
+    int externalPID = 0;
     QLabel *bannerText = 0;
     int lastCodexPID = 0;
     bool reportedSsh = false;

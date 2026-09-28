@@ -185,20 +185,58 @@ void TerminalPane::showSshBanner() {
     // \xc2\xb7 = UTF-8 for "·"
     bannerText->setText(tr("ssh to %1 ended \xc2\xb7 Ctrl+Shift+Return reconnects")
                             .arg(dest.isEmpty() ? tr("the remote host") : dest));
+    bannerButton->setText(tr("Reconnect"));
+    bannerMode = BannerMode::SshEnded;
     banner->show();
     emit sshEnded(id, true);
+}
+
+// The conversation this pane belongs to is running in another window, while
+// this pane only holds an idle shell — offer to pull it in right here.
+void TerminalPane::showExternalBanner(int pid) {
+    if (bannerMode == BannerMode::SshEnded)
+        return; // don't hide a pending reconnect
+
+    externalPID = pid;
+
+    // \xc2\xb7 = UTF-8 for "·"
+    bannerText->setText(tr("This conversation is running in another window (pid %1) "
+                           "\xc2\xb7 Ctrl+Shift+Return beams it in here").arg(pid));
+    bannerButton->setText(tr("Beam it in here"));
+    bannerMode = BannerMode::External;
+    banner->show();
+}
+
+void TerminalPane::hideExternalBanner() {
+    if (bannerMode == BannerMode::External)
+        hideSshBanner();
+}
+
+bool TerminalPane::hasAgent() const {
+    return shell > 0 && !ProcessScout::findDescendants(shell, {"claude", "codex"}).isEmpty();
+}
+
+void TerminalPane::bannerAction() {
+    if (bannerMode == BannerMode::SshEnded)
+        reconnectSsh();
+    else if (bannerMode == BannerMode::External)
+        emit beamHereRequested(id, externalPID);
 }
 
 void TerminalPane::hideSshBanner() {
     if (banner->isHidden())
         return;
 
+    const bool wasSsh = bannerMode == BannerMode::SshEnded;
+    bannerMode = BannerMode::None;
     banner->hide();
-    emit sshEnded(id, false);
+
+    if (wasSsh)
+        emit sshEnded(id, false);
 }
 
 bool TerminalPane::hasEndedSsh() const {
-    return !banner->isHidden();
+    return bannerMode == BannerMode::SshEnded;
 }
 
 static QString shellQuote(const QString &arg) {
@@ -232,10 +270,10 @@ void TerminalPane::buildSshBanner(QVBoxLayout *layout) {
     bannerText = new QLabel(banner);
     bannerText->setTextInteractionFlags(Qt::TextSelectableByMouse);
     row->addWidget(bannerText, 1);
-    auto *reconnect = new QPushButton(tr("Reconnect"), banner);
-    reconnect->setToolTip(QStringLiteral("Ctrl+Shift+Return"));
-    connect(reconnect, &QPushButton::clicked, this, &TerminalPane::reconnectSsh);
-    row->addWidget(reconnect);
+    bannerButton = new QPushButton(banner);
+    bannerButton->setToolTip(QStringLiteral("Ctrl+Shift+Return"));
+    connect(bannerButton, &QPushButton::clicked, this, &TerminalPane::bannerAction);
+    row->addWidget(bannerButton);
     auto *dismiss = new QPushButton(QString::fromUtf8("\xe2\x9c\x95"), banner); // "✕"
     dismiss->setFlat(true);
     dismiss->setToolTip(tr("Dismiss"));

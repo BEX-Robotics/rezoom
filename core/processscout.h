@@ -34,6 +34,11 @@ QList<ProcInfo> byComm(const QString &name);
 // Running ssh client processes owned by this user.
 QList<ProcInfo> runningSsh();
 
+// The ssh sessions a person started by hand: launched straight from an
+// interactive shell, on a terminal, not in batch mode. git's ssh, tools'
+// ssh and scripted BatchMode ssh never qualify.
+QList<ProcInfo> interactiveSsh();
+
 // Best-effort ssh destination from a client cmdline ("user@host" or "host").
 QString sshDestination(const QStringList &cmdline);
 

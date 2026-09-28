@@ -214,6 +214,28 @@ QList<ProcInfo> runningSsh() {
     return byComm(QStringLiteral("ssh"));
 }
 
+QList<ProcInfo> interactiveSsh() {
+    static const QStringList shells = {"zsh", "bash", "fish", "sh", "dash", "ksh", "tcsh"};
+    QList<ProcInfo> out;
+
+    for (const ProcInfo &p : runningSsh()) {
+        if (!shells.contains(comm(parentPid(p.pid))))
+            continue;
+
+        if (p.cmdline.join(' ').contains(QLatin1String("BatchMode=yes")))
+            continue;
+
+        const QString t = tty(p.pid);
+
+        if (t.isEmpty() || !t.startsWith(QLatin1String("/dev/pts/")))
+            continue;
+
+        out.append(p);
+    }
+
+    return out;
+}
+
 QString tty(int pid) {
 #ifdef Q_OS_MACOS
     Q_UNUSED(pid);

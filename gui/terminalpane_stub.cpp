@@ -45,3 +45,13 @@ bool TerminalPane::hasEndedSsh() const {
 
 void TerminalPane::reconnectSsh() {
 }
+
+bool TerminalPane::hasAgent() const {
+    return false;
+}
+
+void TerminalPane::showExternalBanner(int) {
+}
+
+void TerminalPane::hideExternalBanner() {
+}
