@@ -14,6 +14,10 @@ public:
 
     // Per-part tooltips (status dot, unread mark, account pill, avatar);
     // anywhere else falls through to the row's hover card.
+    // The working spinner's frame: advanced by a timer while rows are busy.
+    static void advanceSpinner();
+    static QString spinnerGlyph();
+
     bool helpEvent(QHelpEvent *event, QAbstractItemView *view,
                    const QStyleOptionViewItem &option, const QModelIndex &index) override;
 };

@@ -21,8 +21,9 @@ theme, embeds real Konsole terminals.
 ## What it does
 
 - **See everything at once.** Rezoom reads the registry Claude Code already writes
-  (`~/.claude/sessions/`). Every session shows a presence dot — green working,
-  amber finished and waiting for you, grey idle, blue at a shell, red frozen on a usage limit, hollow
+  (`~/.claude/sessions/`). Every session shows its state: Claude's orange spinner
+  while working (a still star when it's stuck), green when it finished and it's your
+  turn, grey idle, blue at a shell, red frozen on a usage limit, hollow
   resumable — its live title, and its latest output while it works. New sessions
   appear on their own; tool-spawned ones (in `/tmp`, or started by another claude)
   are left out.

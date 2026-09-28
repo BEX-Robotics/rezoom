@@ -53,6 +53,14 @@
 #include "windowraiser.h"
 #include "zonedialog.h"
 
+// KDE's "Animation speed: instant" writes AnimationDurationFactor=0.
+static bool animationsEnabled() {
+    const QString kdeglobals =
+        QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation) + "/kdeglobals";
+    QSettings s(kdeglobals, QSettings::IniFormat);
+    return s.value("KDE/AnimationDurationFactor", 1.0).toDouble() > 0.0;
+}
+
 // Where a chat's terminal starts: its own folder, unless it's an ssh chat
 // whose cwd lives on the remote host.
 static QString launchDir(const Chat &c) {
@@ -125,17 +133,7 @@ MainWindow::MainWindow() {
 
     connect(&registry, &LiveRegistry::updated, this, &MainWindow::onRegistryUpdated);
 
-    // Freezing (Ctrl+Z) or stalling doesn't touch claude's registry, so
-    // health is re-read on a slow timer too; unchanged rows update in place.
-    auto *healthTimer = new QTimer(this);
-    connect(healthTimer, &QTimer::timeout, this, [this] {
-        model->rebuild();
-        updateAttention();
-
-        if (!currentID.isEmpty())
-            refreshView(currentID);
-    });
-    healthTimer->start(5000);
+    startTimers();
     connect(&notifications, &NotificationWatcher::updated, this, &MainWindow::updateAttention);
     restoreUnread();
     onRegistryUpdated();
@@ -148,6 +146,35 @@ MainWindow::MainWindow() {
 
     if (templates.resumeOnStart())
         QTimer::singleShot(400, this, &MainWindow::resumePrevious);
+}
+
+// Slow health re-read plus the working spinner's frame clock.
+void MainWindow::startTimers() {
+    // Freezing (Ctrl+Z) or stalling doesn't touch claude's registry, so
+    // health is re-read on a slow timer too; unchanged rows update in place.
+    auto *healthTimer = new QTimer(this);
+    connect(healthTimer, &QTimer::timeout, this, [this] {
+        model->rebuild();
+        updateAttention();
+
+        if (!currentID.isEmpty())
+            refreshView(currentID);
+    });
+    healthTimer->start(5000);
+
+    // Claude-style working spinner: repaint only while something works,
+    // and not at all when KDE animations are turned off.
+    auto *spinTimer = new QTimer(this);
+    connect(spinTimer, &QTimer::timeout, this, [this] {
+        if (!isVisible() || !model->anyWithStatus(QStringLiteral("busy")))
+            return;
+
+        ChatDelegate::advanceSpinner();
+        list->viewport()->update();
+    });
+
+    if (animationsEnabled())
+        spinTimer->start(150);
 }
 
 // Chats adopted before v1.1 carry claude's machine-derived names

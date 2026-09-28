@@ -87,14 +87,14 @@ static QString statusLine(const QString &status) {
         const char *text;
     };
     static const Entry entries[] = {
-        {"busy", "#3fa34d", QT_TR_NOOP("working")},
-        {"live", "#3fa34d", QT_TR_NOOP("session open")},
-        {"idle", "#e6a817", QT_TR_NOOP("waiting for you")},
+        {"busy", "#d97757", QT_TR_NOOP("working")},
+        {"live", "#2aa198", QT_TR_NOOP("session open")},
+        {"idle", "#3fa34d", QT_TR_NOOP("waiting for you")},
         {"seen", "#8a949a", QT_TR_NOOP("idle")},
         {"shell", "#3a7bd5", QT_TR_NOOP("at shell")},
         {"frozen", "#d64545", QT_TR_NOOP("frozen")},
         {"suspended", "#9b6bd6", QT_TR_NOOP("suspended (Ctrl+Z)")},
-        {"stalled", "#dd7f2b", QT_TR_NOOP("no progress")},
+        {"stalled", "#d97757", QT_TR_NOOP("no progress")},
         {"sshended", "#6b7680", QT_TR_NOOP("ssh ended")},
     };
 
@@ -411,6 +411,14 @@ QModelIndex ChatListModel::indexOf(const QString &id) const {
             return index(i, 0);
 
     return {};
+}
+
+bool ChatListModel::anyWithStatus(const QString &status) const {
+    for (const Row &r : rows)
+        if (r.status == status)
+            return true;
+
+    return false;
 }
 
 int ChatListModel::archivedCount() const {

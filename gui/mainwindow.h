@@ -120,6 +120,7 @@ private:
     void pushLiveTitles();
     void setUnread(const QSet<QString> &ids);
     void restoreUnread();
+    void startTimers();
     void updateAttention(); // window title + taskbar badge
     void updateArchivedButton();
     void autoAdoptNew();

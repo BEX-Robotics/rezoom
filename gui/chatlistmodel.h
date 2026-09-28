@@ -46,6 +46,7 @@ public:
     QString idAt(const QModelIndex &index) const;
     QModelIndex indexOf(const QString &id) const;
     int archivedCount() const;
+    bool anyWithStatus(const QString &status) const;
 
 public slots:
     void rebuild();

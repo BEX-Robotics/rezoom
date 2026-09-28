@@ -11,20 +11,20 @@ static QColor statusColor(const QString &status) {
     if (status == "frozen")
         return QColor("#d64545"); // red: limit-frozen, waiting for reset
 
-    if (status == "busy" || status == "live")
-        return QColor("#3fa34d"); // green: working / session open in a pane
+    if (status == "busy" || status == "stalled")
+        return QColor("#d97757"); // Claude's orange: on it (spinner) / stuck (still)
+
+    if (status == "live")
+        return QColor("#2aa198"); // teal: session open, no finer state known
 
     if (status == "idle")
-        return QColor("#e6a817"); // amber: finished, unread — waiting for you
+        return QColor("#3fa34d"); // green: finished, unread — your turn
 
     if (status == "seen")
         return QColor("#8a949a"); // grey: idle at its prompt, nothing new
 
     if (status == "suspended")
         return QColor("#9b6bd6"); // violet: frozen by Ctrl+Z
-
-    if (status == "stalled")
-        return QColor("#dd7f2b"); // orange: busy but no progress for hours
 
     if (status == "sshended")
         return QColor("#6b7680"); // slate: its ssh connection ended
@@ -90,6 +90,20 @@ static RowGeometry rowGeometry(const QStyleOptionViewItem &opt, const QModelInde
     return g;
 }
 
+static void paintSpinner(QPainter *p, const QStyleOptionViewItem &opt, const QRect &dot,
+                         const QString &glyph) {
+    const QRect disc = dot.adjusted(-3, -3, 3, 3);
+    p->setPen(Qt::NoPen);
+    p->setBrush(opt.palette.window().color());
+    p->drawEllipse(disc);
+    QFont f = opt.font;
+    f.setBold(true);
+    f.setPixelSize(disc.height());
+    p->setFont(f);
+    p->setPen(statusColor(QStringLiteral("busy")));
+    p->drawText(disc, Qt::AlignCenter, glyph);
+}
+
 static void paintAvatar(QPainter *p, const QStyleOptionViewItem &opt, const RowGeometry &g,
                         const QModelIndex &index) {
 
@@ -105,8 +119,17 @@ static void paintAvatar(QPainter *p, const QStyleOptionViewItem &opt, const RowG
     p->setFont(mono);
     p->drawText(avatar, Qt::AlignCenter, index.data(ChatListModel::MonogramRole).toString());
 
-    // Presence dot on the avatar's rim.
-    const QColor dot = statusColor(index.data(ChatListModel::StatusRole).toString());
+    // Presence on the avatar's rim: Claude's own spinner while working (a
+    // still star when stuck), a dot for everything else.
+    const QString status = index.data(ChatListModel::StatusRole).toString();
+
+    if (status == "busy" || status == "stalled") {
+        paintSpinner(p, opt, g.dot, status == "busy" ? ChatDelegate::spinnerGlyph()
+                                                     : QString::fromUtf8("\xe2\x9c\xb3")); // "✳"
+        return;
+    }
+
+    const QColor dot = statusColor(status);
     const QRect &dotRect = g.dot;
     p->setPen(QPen(opt.palette.window().color(), 2));
     p->setBrush(dot.isValid() ? dot : opt.palette.window().color());
@@ -197,8 +220,8 @@ static void paintPreviewLine(QPainter *p, const QStyleOptionViewItem &opt, const
     prevFont.setItalic(status == "busy");
     p->setFont(prevFont);
     p->setPen(status == "frozen" ? QColor("#d64545")
-              : status == "busy"   ? QColor("#3fa34d")
-              : status == "idle"   ? QColor("#e6a817")
+              : status == "busy"   ? QColor("#d97757")
+              : status == "idle"   ? QColor("#3fa34d")
                                    : opt.palette.placeholderText().color());
     int prevW = line2.width();
 
@@ -235,7 +258,7 @@ void ChatDelegate::paint(QPainter *p, const QStyleOptionViewItem &opt,
 
 static QString statusMeaning(const QString &status) {
     if (status == "busy")
-        return QObject::tr("Working right now.");
+        return QObject::tr("Working right now (Claude's orange spinner).");
 
     if (status == "live")
         return QObject::tr("Open in a Rezoom pane. This agent doesn't report working or "
@@ -304,4 +327,19 @@ bool ChatDelegate::helpEvent(QHelpEvent *e, QAbstractItemView *view,
     }
 
     return QStyledItemDelegate::helpEvent(e, view, opt, index);
+}
+
+// Claude's own spinner frames, played forward then back.
+static const char *spinnerFrames[] = {"\xc2\xb7", "\xe2\x9c\xa2", "\xe2\x9c\xb3",
+                                      "\xe2\x9c\xb6", "\xe2\x9c\xbb", "\xe2\x9c\xbd"};
+// UTF-8: "·" (middle dot), "✢", "✳", "✶", "✻", "✽"
+static int spinnerFrame = 0;
+
+void ChatDelegate::advanceSpinner() {
+    spinnerFrame = (spinnerFrame + 1) % 10; // 0..5 forward, 6..9 back down
+}
+
+QString ChatDelegate::spinnerGlyph() {
+    const int i = spinnerFrame < 6 ? spinnerFrame : 10 - spinnerFrame;
+    return QString::fromUtf8(spinnerFrames[i]);
 }
