@@ -53,6 +53,20 @@
 #include "windowraiser.h"
 #include "zonedialog.h"
 
+// Where a chat's terminal starts: its own folder, unless it's an ssh chat
+// whose cwd lives on the remote host.
+static QString launchDir(const Chat &c) {
+    return (!c.cwd.isEmpty() && !c.isRemote()) ? c.cwd : QDir::homePath();
+}
+
+// "cd '<dir>' && <cmd>" — for commands typed into a shell that may have
+// wandered elsewhere since the pane opened.
+static QString inDir(const QString &dir, const QString &cmd) {
+    QString d = dir;
+    d.replace('\'', QLatin1String("'\\''"));
+    return QStringLiteral("cd '%1' && %2").arg(d, cmd);
+}
+
 static void launchInKonsole(const QString &cwd, const QString &command) {
     ExternalTerminal::launch(cwd, command);
 }
@@ -239,7 +253,7 @@ void MainWindow::resumePrevious() {
     QStringList cwds;
 
     for (const Chat &c : store.chats())
-        if (c.kind == "claude" && c.host.isEmpty() && !c.cwd.isEmpty() && !c.archived)
+        if (c.kind == "claude" && !c.cwd.isEmpty() && !c.archived)
             cwds << c.cwd;
 
     cwds.removeDuplicates();
@@ -648,7 +662,7 @@ void MainWindow::launchChat(const QString &chatID, const QString &commandOverrid
                 .arg(why));
 
         if (answer == QMessageBox::Yes) {
-            launchInKonsole((!c->cwd.isEmpty() && c->host.isEmpty()) ? c->cwd : QDir::homePath(),
+            launchInKonsole(launchDir(*c),
                             templates.resolveFor(*c));
             store.touch(chatID);
         }
@@ -662,7 +676,7 @@ void MainWindow::launchChat(const QString &chatID, const QString &commandOverrid
     model->setEmbedded(QSet<QString>(panes.keyBegin(), panes.keyEnd()));
     view->attachPane(pane);
 
-    const QString cwd = (!c->cwd.isEmpty() && c->host.isEmpty()) ? c->cwd : QDir::homePath();
+    const QString cwd = launchDir(*c);
     pane->runCommand(cwd, commandOverride.isEmpty() ? templates.resolveFor(*c) : commandOverride);
 
     // Background (auto-resume) launches restore state — they must not reorder
@@ -783,6 +797,10 @@ void MainWindow::onChildSsh(const QString &chatID, const QStringList &cmdline) {
     const Chat *cp = store.find(chatID);
 
     if (!cp || !cp->entryCommand.isEmpty())
+        return;
+
+    // Agents' chats never become ssh chats — an ssh there is incidental.
+    if (cp->kind != "shell" && cp->kind != "ssh")
         return;
 
     Chat c = *cp;
@@ -1231,7 +1249,7 @@ void MainWindow::showContextMenu(const QPoint &pos) {
     chord(menu.addAction(tr("Restart session"), this, [this, id] { restartSession(id); }),
           "Ctrl+Shift+U");
 
-    if (c->kind == "claude" && c->host.isEmpty())
+    if (c->kind == "claude")
         chord(menu.addAction(tr("Run under another Claude account\xe2\x80\xa6"), this,
                              [this, id] { runUnderZone(id); }),
               "Ctrl+Shift+K");
@@ -1535,7 +1553,7 @@ void MainWindow::resumeWhenGone(const QString &chatID, int pid, int triesLeft) {
     const Chat *c = store.find(chatID);
 
     if (pane && c) // restart in place: the pane's shell survived its claude
-        pane->typeCommand(templates.resolveFor(*c));
+        pane->typeCommand(inDir(launchDir(*c), templates.resolveFor(*c)));
     else
         launchChat(chatID);
 
@@ -1577,7 +1595,7 @@ void MainWindow::restartSession(const QString &chatID) {
 void MainWindow::runUnderZone(const QString &chatID) {
     const Chat *cp = store.find(chatID);
 
-    if (!cp || cp->kind != "claude" || !cp->host.isEmpty())
+    if (!cp || cp->kind != "claude")
         return;
 
     const bool hasHistory = !cp->claudeSessionID.isEmpty();
@@ -1655,7 +1673,7 @@ void MainWindow::popOut(const QString &chatID) {
     TerminalPane *pane = panes.value(chatID);
 
     if (!pane) { // nothing running here — plain external launch
-        launchInKonsole(cp->host.isEmpty() ? cp->cwd : QString(), templates.resolveFor(*cp));
+        launchInKonsole(cp->isRemote() ? QString() : cp->cwd, templates.resolveFor(*cp));
         return;
     }
 
@@ -1671,7 +1689,7 @@ void MainWindow::popOut(const QString &chatID) {
             kill(pane->shellPID(), SIGHUP);
 
         onPaneTerminated(chatID);
-        launchInKonsole(cp->host.isEmpty() ? cp->cwd : QString(), templates.resolveFor(*cp));
+        launchInKonsole(cp->isRemote() ? QString() : cp->cwd, templates.resolveFor(*cp));
         return;
     }
 
@@ -1681,7 +1699,7 @@ void MainWindow::popOut(const QString &chatID) {
     }
 
     const QString before = ProcessScout::tty(target);
-    launchInKonsole(cp->host.isEmpty() ? cp->cwd : QString(),
+    launchInKonsole(cp->isRemote() ? QString() : cp->cwd,
                     Reptyr::command(target));
     QTimer::singleShot(2500, this, [this, chatID, target, before] {
         verifyPopOut(chatID, target, before);
@@ -1727,7 +1745,7 @@ void MainWindow::popOutRecovery(const QString &chatID, const QString &why,
         }
 
         if (cp)
-            launchInKonsole(cp->host.isEmpty() ? cp->cwd : QString(),
+            launchInKonsole(cp->isRemote() ? QString() : cp->cwd,
                             templates.resolveFor(*cp));
     }
 }

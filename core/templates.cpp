@@ -101,7 +101,7 @@ QString Templates::defaultTemplateFor(const Chat &c) const {
 // CLAUDE_CONFIG_DIR; everything else is exactly the template.
 QString Templates::resolveFor(const Chat &c) const {
     const QString cmd = resolveTemplate(c);
-    const bool zoned = !c.zone.isEmpty() && c.kind == "claude" && c.host.isEmpty();
+    const bool zoned = !c.zone.isEmpty() && c.kind == "claude";
     return (zoned && !cmd.isEmpty()) ? Zones::envPrefix(c.zone) + cmd : cmd;
 }
 

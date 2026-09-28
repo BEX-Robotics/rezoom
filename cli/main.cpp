@@ -69,7 +69,7 @@ static int cmdResume(SessionStore &store, LiveRegistry &registry, Templates &tem
         return 0;
     }
 
-    ExternalTerminal::launch((!c->cwd.isEmpty() && c->host.isEmpty()) ? c->cwd : QString(),
+    ExternalTerminal::launch(c->isRemote() ? QString() : c->cwd,
                              command);
     return 0;
 }

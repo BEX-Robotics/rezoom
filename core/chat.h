@@ -27,6 +27,10 @@ struct Chat {
     static QString randomTint(const QString &seed);
     static QString tintColorHex(const QString &tint); // "#rrggbb" for the avatar
 
+    // Lives on another machine: an ssh/tmux chat with a host. Agents' chats
+    // are local even if an ssh once ran inside them.
+    bool isRemote() const { return !host.isEmpty() && (kind == "ssh" || kind == "tmux"); }
+
     // "/home/pavel/dev/x" → "~/dev/x", for display only.
     static QString tildify(const QString &path);
 

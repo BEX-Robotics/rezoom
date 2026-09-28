@@ -143,6 +143,12 @@ void TerminalPane::poll() {
                 emit childCodex(id, p.pid);
             }
         } else if (p.comm == "ssh") {
+            // Only an ssh typed at this pane's own prompt is the chat's
+            // connection; ones spawned deeper (git push, tools an agent
+            // runs, nested apps) are none of its business.
+            if (ProcessScout::parentPid(p.pid) != shell)
+                continue;
+
             trackSsh(p.pid, p.cmdline);
 
             if (!reportedSsh) {
