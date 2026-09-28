@@ -35,6 +35,7 @@
 #include "core/codexindex.h"
 #include "core/externalterminal.h"
 #include "core/processscout.h"
+#include "core/sessionhealth.h"
 #include "core/reptyr.h"
 #include "core/transcriptindex.h"
 
@@ -109,6 +110,18 @@ MainWindow::MainWindow() {
     });
 
     connect(&registry, &LiveRegistry::updated, this, &MainWindow::onRegistryUpdated);
+
+    // Freezing (Ctrl+Z) or stalling doesn't touch claude's registry, so
+    // health is re-read on a slow timer too; unchanged rows update in place.
+    auto *healthTimer = new QTimer(this);
+    connect(healthTimer, &QTimer::timeout, this, [this] {
+        model->rebuild();
+        updateAttention();
+
+        if (!currentID.isEmpty())
+            refreshView(currentID);
+    });
+    healthTimer->start(5000);
     connect(&notifications, &NotificationWatcher::updated, this, &MainWindow::updateAttention);
     restoreUnread();
     onRegistryUpdated();
@@ -374,6 +387,9 @@ void MainWindow::actOnCurrent() {
 
     TerminalPane *pane = panes.value(currentID);
 
+    if (pane && continueInPane(pane))
+        return;
+
     if (pane) { // already running here — just focus it
         ChatView *view = views.value(currentID);
         FloatWindow *w = view ? floatOf(view) : 0;
@@ -390,10 +406,28 @@ void MainWindow::actOnCurrent() {
     if (!c)
         return;
 
-    if (liveFor(*c))
+    const auto live = liveFor(*c);
+
+    if (live && ProcessScout::isStopped(live->pid))
+        continueSuspended(currentID, live->pid);
+    else if (live)
         pullInLive(currentID); // running outside — beam it in
     else
         launchChat(currentID);
+}
+
+// A claude suspended inside one of our panes: its shell holds the prompt,
+// so "fg" goes straight into the pane.
+bool MainWindow::continueInPane(TerminalPane *pane) {
+    for (const auto &p : ProcessScout::findDescendants(pane->shellPID(), {"claude", "codex"})) {
+        if (ProcessScout::isStopped(p.pid)) {
+            pane->typeCommand(QStringLiteral("fg %%1").arg(p.comm));
+            pane->setFocus();
+            return true;
+        }
+    }
+
+    return false;
 }
 
 void MainWindow::renameCurrent() {
@@ -497,7 +531,12 @@ ChatView *MainWindow::viewFor(const QString &chatID) {
     });
     connect(view->resume(), &ResumePane::forgetRequested, this,
             [this, chatID] { deleteChat(chatID); });
+    connect(view->resume(), &ResumePane::continueRequested, this,
+            [this, chatID](int pid) { continueSuspended(chatID, pid); });
+    connect(view->resume(), &ResumePane::resumeHereRequested, this,
+            [this, chatID](int pid) { resumeSuspendedHere(chatID, pid); });
     refreshView(chatID);
+
     return view;
 }
 
@@ -514,7 +553,8 @@ void MainWindow::refreshView(const QString &chatID) {
     if (live)
         externalPID = live->pid;
 
-    view->resume()->setChat(*c, templates.resolveFor(*c), externalPID);
+    const SessionHealth::Health health = live ? SessionHealth::of(*live) : SessionHealth::Health{};
+    view->resume()->setChat(*c, templates.resolveFor(*c), externalPID, health);
 }
 
 void MainWindow::selectChat(const QString &chatID) {
@@ -933,7 +973,8 @@ void MainWindow::updateAttention() {
     for (const Chat &c : store.chats()) {
         const auto live = registry.entryForSession(c.claudeSessionID);
 
-        if (live && live->status == "busy")
+        if (live && live->status == "busy"
+            && SessionHealth::of(*live).state == SessionHealth::State::Normal)
             ++working;
     }
 
@@ -1551,6 +1592,27 @@ void MainWindow::runUnderZone(const QString &chatID) {
 void MainWindow::runUnderZoneCurrent() {
     if (!currentID.isEmpty())
         runUnderZone(currentID);
+}
+
+// Wake a Ctrl+Z'd session in its own terminal ("fg" typed into its shell).
+void MainWindow::continueSuspended(const QString &chatID, int pid) {
+    if (WindowRaiser::continueJob(pid))
+        return;
+
+    // Its shell is no longer at a prompt — the only safe route left is here.
+    resumeSuspendedHere(chatID, pid);
+}
+
+// End a frozen session and resume its conversation in Rezoom. A stopped
+// process ignores SIGTERM until woken, so SIGCONT follows; both go to its
+// whole job (MCP helpers included) only when it leads its own process
+// group — never to the shell's group.
+void MainWindow::resumeSuspendedHere(const QString &chatID, int pid) {
+    const int group = ProcessScout::processGroup(pid);
+    const int target = group == pid ? -group : pid;
+    kill(target, SIGTERM);
+    kill(target, SIGCONT);
+    resumeWhenGone(chatID, pid, 40);
 }
 
 void MainWindow::restartCurrent() {

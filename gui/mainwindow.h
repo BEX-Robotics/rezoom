@@ -77,6 +77,9 @@ private:
     void resumeWhenGone(const QString &chatID, int pid, int triesLeft);
     void restartSession(const QString &chatID);
     void restartCurrent();
+    void continueSuspended(const QString &chatID, int pid);
+    void resumeSuspendedHere(const QString &chatID, int pid);
+    bool continueInPane(TerminalPane *pane);
     void runUnderZone(const QString &chatID);
     void runUnderZoneCurrent();
     void selectChat(const QString &chatID);

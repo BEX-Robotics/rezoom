@@ -50,22 +50,7 @@ ResumePane::ResumePane(QWidget *parent) : QWidget(parent) {
     outer->addLayout(centered(command, 4));
     outer->addSpacing(12);
 
-    launch = new QPushButton(this);
-    launch->setMinimumHeight(40);
-    launch->setToolTip(QStringLiteral("Ctrl+Shift+Return"));
-    connect(launch, &QPushButton::clicked, this, [this] {
-        if (beaming)
-            emit pullRequested();
-        else
-            emit launchRequested();
-    });
-    outer->addLayout(centered(launch));
-
-    raiseBtn = new QPushButton(tr("Go to its window"), this);
-    raiseBtn->setMinimumHeight(40);
-    connect(raiseBtn, &QPushButton::clicked, this,
-            [this] { emit raiseRequested(externalPID); });
-    outer->addLayout(centered(raiseBtn));
+    addActionButtons(outer);
 
     addTidyRow(outer);
 
@@ -75,6 +60,36 @@ ResumePane::ResumePane(QWidget *parent) : QWidget(parent) {
     note->setStyleSheet("color: palette(placeholder-text);");
     outer->addWidget(note);
     outer->addStretch(3);
+}
+
+// The big action button plus its situational companions.
+void ResumePane::addActionButtons(QVBoxLayout *outer) {
+    launch = new QPushButton(this);
+    launch->setMinimumHeight(40);
+    launch->setToolTip(QStringLiteral("Ctrl+Shift+Return"));
+    connect(launch, &QPushButton::clicked, this, [this] {
+        if (mode == Mode::Beam)
+            emit pullRequested();
+        else if (mode == Mode::Continue)
+            emit continueRequested(externalPID);
+        else
+            emit launchRequested();
+    });
+    outer->addLayout(centered(launch));
+
+    resumeHereBtn = new QPushButton(tr("Resume in Rezoom instead"), this);
+    resumeHereBtn->setMinimumHeight(40);
+    resumeHereBtn->setToolTip(tr("Ends the frozen process and resumes the conversation "
+                                 "here from its transcript"));
+    connect(resumeHereBtn, &QPushButton::clicked, this,
+            [this] { emit resumeHereRequested(externalPID); });
+    outer->addLayout(centered(resumeHereBtn));
+
+    raiseBtn = new QPushButton(tr("Go to its window"), this);
+    raiseBtn->setMinimumHeight(40);
+    connect(raiseBtn, &QPushButton::clicked, this,
+            [this] { emit raiseRequested(externalPID); });
+    outer->addLayout(centered(raiseBtn));
 }
 
 // Done with it? A not-running chat can be filed away or forgotten here.
@@ -93,7 +108,8 @@ void ResumePane::addTidyRow(QVBoxLayout *outer) {
     outer->addLayout(tidy);
 }
 
-void ResumePane::setChat(const Chat &c, const QString &resolvedCommand, int pid) {
+void ResumePane::setChat(const Chat &c, const QString &resolvedCommand, int pid,
+                         const SessionHealth::Health &health) {
     externalPID = pid;
 
     avatar->setText(c.monogram());
@@ -119,37 +135,71 @@ void ResumePane::setChat(const Chat &c, const QString &resolvedCommand, int pid)
     info->setText(parts.join(QString::fromUtf8("  \xe2\x80\xa2  ")));
     command->setText(resolvedCommand.isEmpty() ? tr("(plain shell)") : resolvedCommand);
 
+    setActions(c, resolvedCommand, pid, health);
+}
+
+// The big button and its companions, per situation: not running, running
+// elsewhere (beam / go to window), or suspended there (continue / resume here).
+void ResumePane::setActions(const Chat &c, const QString &cmd, int pid,
+                            const SessionHealth::Health &health) {
     const bool external = pid > 0;
-    const bool canBeam = external && Reptyr::supported();
+    const bool suspended = external && health.state == SessionHealth::State::Suspended;
     const bool canRaise = external && WindowRaiser::canRaise(pid);
-    raiseBtn->setVisible(canRaise);
     archiveBtn->setText(c.archived ? tr("Unarchive") : tr("Archive"));
     archiveBtn->setVisible(!external); // only for chats that aren't running
     forgetBtn->setVisible(!external);
+    raiseBtn->setVisible(canRaise && !suspended);
+    resumeHereBtn->setVisible(suspended);
+    launch->setVisible(true);
     launch->setEnabled(true);
-    beaming = canBeam;
+    mode = Mode::Launch;
 
-    if (canBeam) {
-        // \xe2\xa4\xb5 = UTF-8 for "⤵" (arrow pointing down then curving left)
-        launch->setText(tr("\xe2\xa4\xb5  Beam it in"));
-
-        // \xe2\x80\x94 = UTF-8 for "—" (em dash)
-        note->setText(canRaise ? tr("Running outside Rezoom (pid %1) \xe2\x80\x94 beam it into "
-                                    "an embedded pane, or go to its window.").arg(pid)
-                               : tr("Running outside Rezoom (pid %1) \xe2\x80\x94 beam it into "
-                                    "an embedded pane.").arg(pid));
-    } else if (external) {
-        // Session lives outside and we can't move it in here — offer the raise.
-        launch->setEnabled(false);
-        note->setText(canRaise ? tr("Running outside Rezoom (pid %1) \xe2\x80\x94 go to its "
-                                    "window.").arg(pid)
-                               : tr("Running outside Rezoom (pid %1).").arg(pid));
-    } else if (c.kind == "ssh") {
-        launch->setText(tr("Connect: %1").arg(resolvedCommand.left(60)));
+    if (suspended)
+        setSuspendedActions(pid, health);
+    else if (external)
+        setExternalActions(pid, canRaise);
+    else if (c.kind == "ssh") {
+        launch->setText(tr("Connect: %1").arg(cmd.left(60)));
         note->setText(tr("Nothing connects until you press this."));
     } else {
         // \xe2\x96\xb6 = UTF-8 for "▶" (play)
         launch->setText(tr("\xe2\x96\xb6  Rezoom"));
         note->clear();
     }
+}
+
+void ResumePane::setSuspendedActions(int pid, const SessionHealth::Health &health) {
+    const bool canContinue = WindowRaiser::canContinue(pid);
+    mode = Mode::Continue;
+    launch->setVisible(canContinue);
+
+    // \xe2\x96\xb6 = UTF-8 for "▶" (play), \xe2\x80\x94 = "—" (em dash)
+    launch->setText(tr("\xe2\x96\xb6  Continue"));
+    note->setText(canContinue
+        ? tr("Suspended (Ctrl+Z) in its terminal for %1 \xe2\x80\x94 continue it there, or "
+             "resume the conversation here.").arg(SessionHealth::ageText(health.sinceMs))
+        : tr("Suspended (Ctrl+Z) for %1 (pid %2). Rezoom can't wake it in its own "
+             "terminal (no Konsole shell prompt to type into), so resume the "
+             "conversation here instead.")
+              .arg(SessionHealth::ageText(health.sinceMs)).arg(pid));
+}
+
+void ResumePane::setExternalActions(int pid, bool canRaise) {
+    if (Reptyr::supported()) {
+        mode = Mode::Beam;
+
+        // \xe2\xa4\xb5 = UTF-8 for "⤵", \xe2\x80\x94 = "—" (em dash)
+        launch->setText(tr("\xe2\xa4\xb5  Beam it in"));
+        note->setText(canRaise ? tr("Running outside Rezoom (pid %1) \xe2\x80\x94 beam it into "
+                                    "an embedded pane, or go to its window.").arg(pid)
+                               : tr("Running outside Rezoom (pid %1) \xe2\x80\x94 beam it into "
+                                    "an embedded pane.").arg(pid));
+
+        return;
+    }
+
+    launch->setEnabled(false);
+    note->setText(canRaise ? tr("Running outside Rezoom (pid %1) \xe2\x80\x94 go to its "
+                                "window.").arg(pid)
+                           : tr("Running outside Rezoom (pid %1).").arg(pid));
 }

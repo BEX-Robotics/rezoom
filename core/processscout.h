@@ -40,6 +40,13 @@ QString sshDestination(const QStringList &cmdline);
 // Parent pid, 0 when unknown.
 int parentPid(int pid);
 
+// Stopped by a signal — e.g. Ctrl+Z in its terminal. The process is alive
+// but frozen, and can't update its own status files.
+bool isStopped(int pid);
+
+// Process group (the shell job it belongs to); 0 when unknown.
+int processGroup(int pid);
+
 // Nearest ancestor whose comm matches (0 = none) — e.g. the konsole window
 // hosting a claude, or detecting tool-spawned claude-under-claude.
 int ancestorPidOfComm(int pid, const QString &comm);

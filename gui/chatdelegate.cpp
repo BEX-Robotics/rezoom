@@ -20,6 +20,15 @@ static QColor statusColor(const QString &status) {
     if (status == "seen")
         return QColor("#8a949a"); // grey: idle at its prompt, nothing new
 
+    if (status == "suspended")
+        return QColor("#9b6bd6"); // violet: frozen by Ctrl+Z
+
+    if (status == "stalled")
+        return QColor("#dd7f2b"); // orange: busy but no progress for hours
+
+    if (status == "sshended")
+        return QColor("#6b7680"); // slate: its ssh connection ended
+
     if (status == "shell")
         return QColor("#3a7bd5"); // blue: sitting at a shell
 
@@ -243,6 +252,18 @@ static QString statusMeaning(const QString &status) {
 
     if (status == "frozen")
         return QObject::tr("Stopped by a usage limit. It can continue once the limit resets.");
+
+    if (status == "suspended")
+        return QObject::tr("Suspended (Ctrl+Z) in its terminal: alive but frozen. "
+                           "Ctrl+Shift+Return continues it.");
+
+    if (status == "stalled")
+        return QObject::tr("Says it's working, but hasn't written anything for hours. "
+                           "It may be hung: look at its window, or restart it (Ctrl+Shift+U).");
+
+    if (status == "sshended")
+        return QObject::tr("The ssh connection in this pane ended. Ctrl+Shift+Return "
+                           "reconnects with the same command.");
 
     return QObject::tr("Not running. Click the chat to resume it.");
 }

@@ -40,6 +40,7 @@ add_library(rezoomcore STATIC
     core/codexindex.cpp
     core/hookinstaller.cpp
     core/zones.cpp
+    core/sessionhealth.cpp
     core/reptyr.cpp
     core/externalterminal.cpp)
 target_include_directories(rezoomcore PUBLIC ${CMAKE_SOURCE_DIR})

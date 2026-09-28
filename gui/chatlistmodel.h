@@ -3,6 +3,8 @@
 #include <QHash>
 #include <QSet>
 
+#include "core/sessionhealth.h"
+
 struct Chat;
 class SessionStore;
 class LiveRegistry;
@@ -38,6 +40,7 @@ public:
     void setShowArchived(bool on);
     void setUnread(const QSet<QString> &ids);
     void setEmbedded(const QSet<QString> &ids);
+    void setSshEnded(const QSet<QString> &ids);
     void setLiveTitles(const QHash<QString, QString> &titles);
     void setLivePreviews(const QHash<QString, QString> &previews);
     QString idAt(const QModelIndex &index) const;
@@ -64,6 +67,7 @@ private:
 
     Row makeRow(const Chat &c, const QString &liveStatus) const;
     QList<Row> buildRows() const;
+    void applyHealthPreview(Row &row, const SessionHealth::Health &h) const;
     QString tooltipFor(const Chat &c, const Row &row) const;
     bool matchesFilter(const Chat &c) const;
     QString twinsWarning(const Chat &c) const;
@@ -76,6 +80,7 @@ private:
     QString filter;
     QSet<QString> unreadIDs;
     QSet<QString> embeddedIDs;
+    QSet<QString> sshEndedIDs; // panes whose ssh exited (until reconnect/dismiss)
     QHash<QString, QString> liveTitles;   // display-only, e.g. konsole caption
     QHash<QString, QString> livePreviews; // display-only, busy-session tail
     bool showArchived = false;

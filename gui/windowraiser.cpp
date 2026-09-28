@@ -114,6 +114,51 @@ static bool activateViaKWin(int konsolePID, const QString &title) {
     return true;
 }
 
+// The suspended job's shell must be sitting at its prompt (the shell itself
+// is the tab's foreground process) — otherwise "fg" would be typed into
+// whatever program owns the terminal.
+static QString promptSession(int pid, QString *service) {
+    const int kpid = ProcessScout::ancestorPidOfComm(pid, QStringLiteral("konsole"));
+
+    if (kpid <= 0)
+        return {};
+
+    *service = QStringLiteral("org.kde.konsole-%1").arg(kpid);
+    const QString session = findSession(*service, pid);
+
+    if (session.isEmpty())
+        return {};
+
+    const QString path = "/Sessions/" + session;
+    const QString iface = QStringLiteral("org.kde.konsole.Session");
+    const int fg = intReply(konsoleCall(*service, path, iface, QStringLiteral("foregroundProcessId")));
+    const int shell = intReply(konsoleCall(*service, path, iface, QStringLiteral("processId")));
+
+    return (fg > 0 && fg == shell) ? session : QString();
+}
+
+bool WindowRaiser::canContinue(int pid) {
+    QString service;
+    return QDBusConnection::sessionBus().isConnected() && !promptSession(pid, &service).isEmpty();
+}
+
+bool WindowRaiser::continueJob(int pid) {
+    QString service;
+    const QString session = promptSession(pid, &service);
+
+    if (session.isEmpty())
+        return false;
+
+    // "fg %claude" picks the job by name, so other stopped jobs in that
+    // shell stay put.
+    const QString cmd = QStringLiteral("fg %%1\n").arg(ProcessScout::comm(pid));
+    konsoleCall(service, "/Sessions/" + session, QStringLiteral("org.kde.konsole.Session"),
+                QStringLiteral("sendText"), {cmd});
+    raise(pid);
+
+    return true;
+}
+
 bool WindowRaiser::canRaise(int pid) {
     return QDBusConnection::sessionBus().isConnected()
         && ProcessScout::ancestorPidOfComm(pid, QStringLiteral("konsole")) > 0;
@@ -147,6 +192,14 @@ bool WindowRaiser::raise(int pid) {
 }
 
 #else
+
+bool WindowRaiser::canContinue(int) {
+    return false;
+}
+
+bool WindowRaiser::continueJob(int) {
+    return false;
+}
 
 bool WindowRaiser::canRaise(int) {
     return false;

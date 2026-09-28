@@ -139,6 +139,22 @@ int parentPid(int pid) {
     return 0;
 }
 
+bool isStopped(int pid) {
+    for (const kinfo_proc &p : allProcs())
+        if (p.kp_proc.p_pid == pid)
+            return p.kp_proc.p_stat == SSTOP;
+
+    return false;
+}
+
+int processGroup(int pid) {
+    for (const kinfo_proc &p : allProcs())
+        if (p.kp_proc.p_pid == pid)
+            return p.kp_eproc.e_pgid;
+
+    return 0;
+}
+
 int ancestorPidOfComm(int pid, const QString &) {
     Q_UNUSED(pid);
     return 0; // konsole/claude-spawn ancestry is a Linux concern
@@ -146,15 +162,30 @@ int ancestorPidOfComm(int pid, const QString &) {
 
 #else
 
-int parentPid(int pid) {
+// /proc/<pid>/stat fields after the comm: state, ppid, pgrp, ... (comm
+// may contain spaces and parentheses, so split after the last ')').
+static QStringList statFields(int pid) {
     QFile f(QStringLiteral("/proc/%1/stat").arg(pid));
 
     if (!f.open(QIODevice::ReadOnly))
-        return 0;
+        return {};
 
-    // comm may contain spaces: ppid is the 2nd field after the ')'.
     const QString stat = QString::fromUtf8(f.readAll());
-    return stat.mid(stat.lastIndexOf(')') + 1).split(' ', Qt::SkipEmptyParts).value(1).toInt();
+    return stat.mid(stat.lastIndexOf(')') + 1).split(' ', Qt::SkipEmptyParts);
+}
+
+int parentPid(int pid) {
+    return statFields(pid).value(1).toInt();
+}
+
+// 'T' = stopped by a signal (Ctrl+Z, SIGSTOP); 't' (tracing stop, e.g. a
+// debugger or reptyr mid-attach) is transient and deliberately not counted.
+bool isStopped(int pid) {
+    return statFields(pid).value(0) == QLatin1String("T");
+}
+
+int processGroup(int pid) {
+    return statFields(pid).value(2).toInt();
 }
 
 int ancestorPidOfComm(int pid, const QString &wanted) {

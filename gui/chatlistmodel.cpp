@@ -5,6 +5,7 @@
 #include "core/liveregistry.h"
 #include "core/notifications.h"
 #include "core/sessionstore.h"
+#include "core/sessionhealth.h"
 #include "core/templates.h"
 #include "core/zones.h"
 
@@ -92,6 +93,9 @@ static QString statusLine(const QString &status) {
         {"seen", "#8a949a", QT_TR_NOOP("idle")},
         {"shell", "#3a7bd5", QT_TR_NOOP("at shell")},
         {"frozen", "#d64545", QT_TR_NOOP("frozen")},
+        {"suspended", "#9b6bd6", QT_TR_NOOP("suspended (Ctrl+Z)")},
+        {"stalled", "#dd7f2b", QT_TR_NOOP("no progress")},
+        {"sshended", "#6b7680", QT_TR_NOOP("ssh ended")},
     };
 
     for (const Entry &e : entries)
@@ -246,6 +250,24 @@ bool ChatListModel::matchesFilter(const Chat &c) const {
 // Order = persisted recency alone, WhatsApp-style: stable across restarts,
 // a chat moves only when something actually happened in it (launch, turn
 // finished) — never because presence flickered.
+// Suspended / stalled rows say how long it's been; a frozen (usage limit)
+// row keeps its own, more specific text.
+void ChatListModel::applyHealthPreview(Row &row, const SessionHealth::Health &h) const {
+    const QString age = SessionHealth::ageText(h.sinceMs);
+
+    if (row.status == "suspended") // \xe2\x8f\xb8 = UTF-8 for "⏸" (pause)
+        row.preview = QString::fromUtf8("\xe2\x8f\xb8 suspended (Ctrl+Z) \xc2\xb7 %1").arg(age);
+    else if (row.status == "stalled") // \xc2\xb7 = UTF-8 for "·"
+        row.preview = tr("no progress for %1").arg(age);
+    else if (row.status == "sshended")
+        row.preview = tr("ssh ended \xc2\xb7 Ctrl+Shift+Return reconnects");
+}
+
+void ChatListModel::setSshEnded(const QSet<QString> &ids) {
+    sshEndedIDs = ids;
+    rebuild();
+}
+
 QList<ChatListModel::Row> ChatListModel::buildRows() const {
     struct Sortable {
         Row row;
@@ -265,8 +287,23 @@ QList<ChatListModel::Row> ChatListModel::buildRows() const {
         if (!live && embeddedIDs.contains(c.id))
             status = QStringLiteral("live");
 
+        SessionHealth::Health health = {};
+
+        if (live) {
+            health = SessionHealth::of(*live);
+
+            if (health.state == SessionHealth::State::Suspended)
+                status = QStringLiteral("suspended");
+            else if (health.state == SessionHealth::State::Stalled)
+                status = QStringLiteral("stalled");
+        }
+
+        if (sshEndedIDs.contains(c.id))
+            status = QStringLiteral("sshended");
+
         s.lastActive = c.lastActiveAt;
         s.row = makeRow(c, status);
+        applyHealthPreview(s.row, health);
         s.row.timeText = relativeTime(s.lastActive);
         tmp.append(s);
     }
