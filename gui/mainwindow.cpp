@@ -110,6 +110,7 @@ MainWindow::MainWindow() {
 
     connect(&registry, &LiveRegistry::updated, this, &MainWindow::onRegistryUpdated);
     connect(&notifications, &NotificationWatcher::updated, this, &MainWindow::updateAttention);
+    restoreUnread();
     onRegistryUpdated();
     restoreUiState();
 
@@ -537,7 +538,7 @@ void MainWindow::onChatSelected() {
     currentID = id;
 
     if (unread.remove(id)) {
-        model->setUnread(unread);
+        setUnread(unread);
         updateAttention();
     }
 
@@ -826,7 +827,7 @@ void MainWindow::onRegistryUpdated() {
         });
 
     if (unreadChanged)
-        model->setUnread(unread);
+        setUnread(unread);
 
     // Resume panes flip between Rezoom/raise as external sessions come and go.
     for (auto it = views.constBegin(); it != views.constEnd(); ++it)
@@ -901,23 +902,39 @@ void MainWindow::pushLiveTitles() {
     model->setLiveTitles(merged);
 }
 
-// "(2) Rezoom — 3 working · 5 waiting · 1 frozen": the parenthesized count
-// is what needs the user (unread + frozen) and doubles as the taskbar badge
-// (Unity LauncherEntry — Plasma renders it on the launcher icon).
+// "(2) Rezoom — 3 working · 1 frozen": the parenthesized count is what
+// needs the user (unread + frozen) and doubles as the taskbar badge (Unity
+// LauncherEntry — Plasma renders it on the launcher icon). Idle sessions
+// aren't counted: claude reports "idle" for weeks-old parked sessions too.
+// Unread = finished while you were elsewhere. Kept in rezoom.conf so a
+// restart doesn't silently mark everything as seen.
+void MainWindow::setUnread(const QSet<QString> &ids) {
+    unread = ids;
+    model->setUnread(unread);
+    QSettings s(QStringLiteral("rezoom"), QStringLiteral("rezoom"));
+    s.setValue("ui/unread", QStringList(unread.cbegin(), unread.cend()));
+}
+
+void MainWindow::restoreUnread() {
+    QSettings s(QStringLiteral("rezoom"), QStringLiteral("rezoom"));
+    QSet<QString> ids;
+
+    for (const QString &id : s.value("ui/unread").toStringList())
+        if (store.find(id))
+            ids.insert(id);
+
+    unread = ids;
+    model->setUnread(unread);
+}
+
 void MainWindow::updateAttention() {
     int working = 0;
-    int waiting = 0;
 
     for (const Chat &c : store.chats()) {
         const auto live = registry.entryForSession(c.claudeSessionID);
 
-        if (!live)
-            continue;
-
-        if (live->status == "busy")
+        if (live && live->status == "busy")
             ++working;
-        else if (live->status == "idle")
-            ++waiting;
     }
 
     const int frozen = notifications.frozenSessions().size();
@@ -932,9 +949,6 @@ void MainWindow::updateAttention() {
 
     if (working)
         parts << tr("%n working", 0, working);
-
-    if (waiting)
-        parts << tr("%n waiting", 0, waiting);
 
     if (frozen)
         parts << tr("%n frozen", 0, frozen);

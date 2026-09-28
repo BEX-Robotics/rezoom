@@ -115,6 +115,8 @@ private:
     std::optional<LiveEntry> liveFor(const Chat &c) const;
     void refreshExternalTitles();
     void pushLiveTitles();
+    void setUnread(const QSet<QString> &ids);
+    void restoreUnread();
     void updateAttention(); // window title + taskbar badge
     void updateArchivedButton();
     void autoAdoptNew();

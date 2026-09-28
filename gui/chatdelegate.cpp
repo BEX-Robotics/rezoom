@@ -15,7 +15,10 @@ static QColor statusColor(const QString &status) {
         return QColor("#3fa34d"); // green: working / session open in a pane
 
     if (status == "idle")
-        return QColor("#e6a817"); // amber: waiting for the user
+        return QColor("#e6a817"); // amber: finished, unread — waiting for you
+
+    if (status == "seen")
+        return QColor("#8a949a"); // grey: idle at its prompt, nothing new
 
     if (status == "shell")
         return QColor("#3a7bd5"); // blue: sitting at a shell
@@ -230,7 +233,10 @@ static QString statusMeaning(const QString &status) {
                            "waiting, so the dot just means its terminal is up.");
 
     if (status == "idle")
-        return QObject::tr("Finished and waiting for your reply.");
+        return QObject::tr("Finished while you were elsewhere and waiting for your reply.");
+
+    if (status == "seen")
+        return QObject::tr("Idle at its prompt. Nothing new since you last looked.");
 
     if (status == "shell")
         return QObject::tr("At a shell prompt: the agent isn't running in it right now.");

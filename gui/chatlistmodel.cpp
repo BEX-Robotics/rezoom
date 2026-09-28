@@ -33,8 +33,11 @@ static QString statusPreview(const QString &status, const QString &fallback) {
     if (status == "idle" && fallback.isEmpty())
         return QStringLiteral("waiting for you");
 
-    if (status == "idle")
-        return fallback; // the amber dot already says "waiting"
+    if (status == "seen" && fallback.isEmpty())
+        return QStringLiteral("idle");
+
+    if (status == "idle" || status == "seen")
+        return fallback; // the dot already says waiting / idle
 
     if (status == "shell")
         return QStringLiteral("at shell");
@@ -86,6 +89,7 @@ static QString statusLine(const QString &status) {
         {"busy", "#3fa34d", QT_TR_NOOP("working")},
         {"live", "#3fa34d", QT_TR_NOOP("session open")},
         {"idle", "#e6a817", QT_TR_NOOP("waiting for you")},
+        {"seen", "#8a949a", QT_TR_NOOP("idle")},
         {"shell", "#3a7bd5", QT_TR_NOOP("at shell")},
         {"frozen", "#d64545", QT_TR_NOOP("frozen")},
     };
@@ -182,7 +186,11 @@ QString ChatListModel::tooltipFor(const Chat &c, const Row &row) const {
 }
 
 // Everything about one list row except sort keys and time text.
-ChatListModel::Row ChatListModel::makeRow(const Chat &c, const QString &status) const {
+ChatListModel::Row ChatListModel::makeRow(const Chat &c, const QString &liveStatus) const {
+    // Claude says "idle" for any session at its prompt, including ones
+    // parked for weeks. Only an unread one is actually waiting for you.
+    const bool isUnread = unreadIDs.contains(c.id);
+    const QString status = (liveStatus == "idle" && !isUnread) ? QStringLiteral("seen") : liveStatus;
     Row row = {};
     row.id = c.id;
     row.title = c.title.isEmpty() ? c.kind : c.title;
