@@ -28,10 +28,12 @@ def sid(n):
 
 
 # pid, chat number, registry status, name
-for pid, n, status, name in [(1, 2, "idle", "frontend"), (3, 4, "busy", "pipeline"),
-                             (4, 6, "idle", "infra")]:
+# (claude derives names as <folder>-<2 hex>, the handle other agents use)
+for pid, n, status, name, tag in [(1, 2, "idle", "frontend", "3a"), (3, 4, "busy", "pipeline", "c7"),
+                                  (4, 6, "idle", "infra", "e1")]:
     json.dump({"pid": pid, "sessionId": sid(n), "cwd": f"/home/dev/{name}", "status": status,
-               "name": name, "nameSource": "derived", "kind": "interactive", "updatedAt": now},
+               "name": f"{name}-{tag}", "nameSource": "derived", "kind": "interactive",
+               "updatedAt": now},
               open(f"{claude}/sessions/{pid}.json", "w"))
 
 
