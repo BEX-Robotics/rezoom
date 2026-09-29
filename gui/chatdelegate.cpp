@@ -1,4 +1,5 @@
 #include <QAbstractItemView>
+#include <QFontDatabase>
 #include <QHelpEvent>
 #include <QPainter>
 #include <QToolTip>
@@ -61,6 +62,8 @@ static void paintBackground(QPainter *p, const QStyleOptionViewItem &opt, const 
 
 static QRect zonePillRect(const QStyleOptionViewItem &opt, const QRect &line, int timeW,
                           const QString &zone);
+static QRect agentChipRect(const QStyleOptionViewItem &opt, const QRect &line,
+                           const QString &name);
 
 // Every hot spot of a row, computed once so paint() and the per-part
 // tooltips can never disagree about where things are.
@@ -72,6 +75,7 @@ struct RowGeometry {
     QRect line2;
     QRect unread;
     QRect pill;
+    QRect chip;
 };
 
 static RowGeometry rowGeometry(const QStyleOptionViewItem &opt, const QModelIndex &index) {
@@ -86,6 +90,7 @@ static RowGeometry rowGeometry(const QStyleOptionViewItem &opt, const QModelInde
     g.unread = QRect(g.row.right() - 14, g.line2.center().y() - 4, 9, 9);
     const int timeW = opt.fontMetrics.horizontalAdvance(index.data(ChatListModel::TimeRole).toString()) + 6;
     g.pill = zonePillRect(opt, g.line1, timeW, index.data(ChatListModel::ZoneRole).toString());
+    g.chip = agentChipRect(opt, g.line1, index.data(ChatListModel::AgentNameRole).toString());
 
     return g;
 }
@@ -106,7 +111,6 @@ static void paintSpinner(QPainter *p, const QStyleOptionViewItem &opt, const QRe
 
 static void paintAvatar(QPainter *p, const QStyleOptionViewItem &opt, const RowGeometry &g,
                         const QModelIndex &index) {
-
     const QRect &avatar = g.avatar;
     p->setPen(Qt::NoPen);
     p->setBrush(QColor(index.data(ChatListModel::TintRole).toString()));
@@ -163,6 +167,46 @@ static QRect zonePillRect(const QStyleOptionViewItem &opt, const QRect &line, in
     return QRect(line.right() - timeW - w - 4, line.center().y() - h / 2, w, h);
 }
 
+static QFont agentChipFont(const QStyleOptionViewItem &opt) {
+    QFont f = QFontDatabase::systemFont(QFontDatabase::FixedFont);
+    f.setPointSizeF(opt.font.pointSizeF() * 0.8);
+    return f;
+}
+
+// Claude's own name for the running session ("bex-6b"), leading the title —
+// the handle other agents use to message it.
+static QRect agentChipRect(const QStyleOptionViewItem &opt, const QRect &line,
+                           const QString &name) {
+    if (name.isEmpty())
+        return {};
+
+    const QFontMetrics fm(agentChipFont(opt));
+    const int w = fm.horizontalAdvance(fm.elidedText(name, Qt::ElideRight, 110)) + 10;
+    const int h = fm.height() + 2;
+
+    return QRect(line.left(), line.center().y() - h / 2, w, h);
+}
+
+static int paintAgentChip(QPainter *p, const QStyleOptionViewItem &opt, const QRect &line,
+                          const QString &name) {
+    const QRect chip = agentChipRect(opt, line, name);
+
+    if (chip.isNull())
+        return 0;
+
+    const QFont f = agentChipFont(opt);
+    QColor fill = opt.palette.placeholderText().color();
+    fill.setAlpha(45);
+    p->setPen(Qt::NoPen);
+    p->setBrush(fill);
+    p->drawRoundedRect(chip, 4, 4);
+    p->setFont(f);
+    p->setPen(opt.palette.text().color());
+    p->drawText(chip, Qt::AlignCenter, QFontMetrics(f).elidedText(name, Qt::ElideRight, 110));
+
+    return chip.width() + 6;
+}
+
 static int paintZonePill(QPainter *p, const QStyleOptionViewItem &opt, const QRect &line,
                          int timeW, const QString &zone) {
     const QRect pill = zonePillRect(opt, line, timeW, zone);
@@ -188,7 +232,6 @@ static int paintZonePill(QPainter *p, const QStyleOptionViewItem &opt, const QRe
 
 static void paintTitleLine(QPainter *p, const QStyleOptionViewItem &opt, const QRect &line1,
                            const QModelIndex &index, bool unread) {
-
     QFont titleFont = opt.font;
     titleFont.setBold(true);
     p->setFont(titleFont);
@@ -196,12 +239,14 @@ static void paintTitleLine(QPainter *p, const QStyleOptionViewItem &opt, const Q
     const QString time = index.data(ChatListModel::TimeRole).toString();
     const int timeW = opt.fontMetrics.horizontalAdvance(time) + 6;
     const int zoneW = paintZonePill(p, opt, line1, timeW, index.data(ChatListModel::ZoneRole).toString());
+    const int chipW = paintAgentChip(p, opt, line1,
+                                     index.data(ChatListModel::AgentNameRole).toString());
     p->setFont(titleFont);
     p->setPen(opt.palette.text().color());
     const QString title = QFontMetrics(titleFont).elidedText(
         index.data(ChatListModel::TitleRole).toString(), Qt::ElideRight,
-        line1.width() - timeW - zoneW);
-    p->drawText(line1, Qt::AlignLeft | Qt::AlignVCenter, title);
+        line1.width() - timeW - zoneW - chipW);
+    p->drawText(line1.adjusted(chipW, 0, 0, 0), Qt::AlignLeft | Qt::AlignVCenter, title);
 
     QFont timeFont = opt.font;
     timeFont.setPointSizeF(opt.font.pointSizeF() * 0.85);
@@ -212,7 +257,6 @@ static void paintTitleLine(QPainter *p, const QStyleOptionViewItem &opt, const Q
 
 static void paintPreviewLine(QPainter *p, const QStyleOptionViewItem &opt, const QRect &r,
                              const QRect &line2, const QModelIndex &index, bool unread) {
-
     const QString status = index.data(ChatListModel::StatusRole).toString();
     QFont prevFont = opt.font;
     prevFont.setPointSizeF(opt.font.pointSizeF() * 0.9);
@@ -241,7 +285,6 @@ static void paintPreviewLine(QPainter *p, const QStyleOptionViewItem &opt, const
 
 void ChatDelegate::paint(QPainter *p, const QStyleOptionViewItem &opt,
                          const QModelIndex &index) const {
-
     p->save();
     p->setRenderHint(QPainter::Antialiasing);
 
@@ -303,6 +346,11 @@ static QString partTooltip(const QStyleOptionViewItem &opt, const QModelIndex &i
     if (index.data(ChatListModel::UnreadRole).toBool() && g.unread.adjusted(-4, -4, 4, 4).contains(pos))
         return QObject::tr("Unread: this session finished something while you were in "
                            "another chat. Opening it clears the mark.");
+
+    if (!g.chip.isNull() && g.chip.contains(pos)) // \xe2\x80\x94 = UTF-8 for "—"
+        return QObject::tr("Claude Code's name for this running session \xe2\x80\x94 what other "
+                           "agents call it and message it by. It changes when the session "
+                           "restarts. Ctrl+Shift+I copies it.");
 
     if (!g.pill.isNull() && g.pill.contains(pos))
         return QObject::tr("Runs under the Claude account \"%1\" and always resumes "

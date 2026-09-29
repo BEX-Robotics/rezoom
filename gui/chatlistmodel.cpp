@@ -244,7 +244,13 @@ bool ChatListModel::matchesFilter(const Chat &c) const {
     return c.title.contains(filter, Qt::CaseInsensitive)
         || liveTitles.value(c.id).contains(filter, Qt::CaseInsensitive)
         || c.preview.contains(filter, Qt::CaseInsensitive)
-        || c.cwd.contains(filter, Qt::CaseInsensitive);
+        || c.cwd.contains(filter, Qt::CaseInsensitive)
+        || agentNameMatches(c);
+}
+
+bool ChatListModel::agentNameMatches(const Chat &c) const {
+    const auto live = registry->entryForSession(c.claudeSessionID);
+    return live && live->name.contains(filter, Qt::CaseInsensitive);
 }
 
 // Order = persisted recency alone, WhatsApp-style: stable across restarts,
@@ -312,10 +318,15 @@ QList<ChatListModel::Row> ChatListModel::buildRows() const {
 
         s.lastActive = c.lastActiveAt;
         s.row = makeRow(c, status);
+
+        // The name other agents message it by — per process, so only live.
+        if (live && live->name != s.row.title)
+            s.row.agentName = live->name;
+
         applyHealthPreview(s.row, health);
         s.row.timeText = relativeTime(s.lastActive);
         tmp.append(s);
-    }
+    } // for each chat
 
     std::stable_sort(tmp.begin(), tmp.end(), [](const Sortable &a, const Sortable &b) {
         return a.lastActive > b.lastActive;
@@ -374,6 +385,7 @@ QVariant ChatListModel::data(const QModelIndex &index, int role) const {
     case UnreadRole:   return r.unread;
     case KindRole:     return r.kind;
     case ZoneRole:     return r.zone;
+    case AgentNameRole: return r.agentName;
     case Qt::ToolTipRole: return r.tooltip;
     }
 

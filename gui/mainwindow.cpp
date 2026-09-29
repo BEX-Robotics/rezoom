@@ -419,6 +419,7 @@ void MainWindow::buildShortcuts() {
     addChord("Ctrl+Shift+O", "Pop out to Konsole", &MainWindow::popOutCurrent);
     addChord("Ctrl+Shift+U", "Restart session", &MainWindow::restartCurrent);
     addChord("Ctrl+Shift+K", "Run under another Claude account", &MainWindow::runUnderZoneCurrent);
+    addChord("Ctrl+Shift+I", "Copy its agent name", &MainWindow::copyAgentNameCurrent);
     addChord("Ctrl+Shift+Del", "Forget chat", &MainWindow::forgetCurrent);
     addChord("Ctrl+Shift+W", "Close embedded pane", &MainWindow::closePaneCurrent);
     addChord("Ctrl+Shift+P", "Settings", &MainWindow::openSettings);
@@ -1334,6 +1335,17 @@ void MainWindow::addCopyEntries(QMenu *menu, const Chat *c) {
         });
     }
 
+    const QString agentName = agentNameFor(*c);
+
+    if (!agentName.isEmpty()) { // \xe2\x80\x9c \xe2\x80\x9d = UTF-8 for curly quotes
+        QAction *a = menu->addAction(tr("Copy agent name \xe2\x80\x9c%1\xe2\x80\x9d").arg(agentName), this,
+                                     [agentName] {
+                                         QGuiApplication::clipboard()->setText(agentName);
+                                     });
+        a->setShortcut(QKeySequence(QStringLiteral("Ctrl+Shift+I")));
+        a->setShortcutContext(Qt::WidgetShortcut); // display only — window action fires
+    }
+
     const QString resumeCmd = templates.resolveFor(*c);
     const auto copyCmd = [resumeCmd] { QGuiApplication::clipboard()->setText(resumeCmd); };
 
@@ -1824,6 +1836,21 @@ void MainWindow::resumeSuspendedHere(const QString &chatID, int pid) {
     kill(target, SIGTERM);
     kill(target, SIGCONT);
     resumeWhenGone(chatID, pid, 40);
+}
+
+// Claude's own name for the running process ("bex-6b") — what other agents
+// message it by. Per process, so a chat that isn't running has none.
+QString MainWindow::agentNameFor(const Chat &c) const {
+    const auto live = registry.entryForSession(c.claudeSessionID);
+    return live ? live->name : QString();
+}
+
+void MainWindow::copyAgentNameCurrent() {
+    const Chat *c = store.find(currentID);
+    const QString name = c ? agentNameFor(*c) : QString();
+
+    if (!name.isEmpty())
+        QGuiApplication::clipboard()->setText(name);
 }
 
 void MainWindow::restartCurrent() {

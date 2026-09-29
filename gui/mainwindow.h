@@ -79,6 +79,8 @@ private:
     void resumeWhenGone(const QString &chatID, int pid, int triesLeft);
     void restartSession(const QString &chatID);
     void restartCurrent();
+    void copyAgentNameCurrent();
+    QString agentNameFor(const Chat &c) const;
     void continueSuspended(const QString &chatID, int pid);
     void resumeSuspendedHere(const QString &chatID, int pid);
     bool continueInPane(TerminalPane *pane);

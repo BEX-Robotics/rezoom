@@ -27,6 +27,7 @@ public:
         UnreadRole,
         KindRole,
         ZoneRole,  // account zone name, "" = default
+        AgentNameRole, // claude's name for the running process ("bex-6b"), "" = none
     };
 
     ChatListModel(SessionStore *store, LiveRegistry *registry,
@@ -64,6 +65,7 @@ private:
         QString monogram;
         QString kind;
         QString zone;
+        QString agentName;
         bool unread = false;
     };
 
@@ -72,6 +74,7 @@ private:
     void applyHealthPreview(Row &row, const SessionHealth::Health &h) const;
     QString tooltipFor(const Chat &c, const Row &row) const;
     bool matchesFilter(const Chat &c) const;
+    bool agentNameMatches(const Chat &c) const;
     QString twinsWarning(const Chat &c) const;
 
     SessionStore *store = 0;
