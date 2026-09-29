@@ -194,8 +194,8 @@ void TerminalPane::showSshBanner() {
 // The conversation this pane belongs to is running in another window, while
 // this pane only holds an idle shell — offer to pull it in right here.
 void TerminalPane::showExternalBanner(int pid) {
-    if (bannerMode == BannerMode::SshEnded)
-        return; // don't hide a pending reconnect
+    if (bannerMode == BannerMode::SshEnded || bannerMode == BannerMode::HuskKept)
+        return; // don't hide a pending reconnect or warning
 
     externalPID = pid;
 
@@ -212,8 +212,26 @@ void TerminalPane::hideExternalBanner() {
         hideSshBanner();
 }
 
+// A beamed-in session stays a child of its old shell; the reptyr forwarder
+// under this pane's shell is what says it lives here now.
 bool TerminalPane::hasAgent() const {
-    return shell > 0 && !ProcessScout::findDescendants(shell, {"claude", "codex"}).isEmpty();
+    return shell > 0
+        && !ProcessScout::findDescendants(shell, {"claude", "codex", "reptyr"}).isEmpty();
+}
+
+// reptyr -T leaves the session a child of the shell in its old tab: closing
+// that tab hangs the shell up, and the shell takes the session with it.
+// Killing a konsole process is safe, but not when it hosts other tabs too.
+void TerminalPane::showHuskBanner() {
+    if (bannerMode == BannerMode::SshEnded)
+        return;
+
+    // \xe2\x9a\xa0 = "⚠", \xe2\x80\x94 = "—"
+    bannerText->setText(tr("Keep its old Konsole tab (marked \xe2\x9a\xa0) open until this "
+                           "session ends \xe2\x80\x94 closing that tab ends the session."));
+    bannerButton->setText(tr("Got it"));
+    bannerMode = BannerMode::HuskKept;
+    banner->show();
 }
 
 void TerminalPane::bannerAction() {
@@ -221,6 +239,8 @@ void TerminalPane::bannerAction() {
         reconnectSsh();
     else if (bannerMode == BannerMode::External)
         emit beamHereRequested(id, externalPID);
+    else
+        hideSshBanner();
 }
 
 void TerminalPane::hideSshBanner() {

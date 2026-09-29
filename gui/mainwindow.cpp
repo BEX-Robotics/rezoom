@@ -1584,11 +1584,33 @@ void MainWindow::updatePaneBanners() {
 // After reptyr -T the old Konsole window is a husk: frozen last frame,
 // input going nowhere. Closing it is safe (the moved process survives —
 // verified), but only a single-session window: never take tabs down with it.
-void MainWindow::closeHusk(int movedPid) {
+// A beamed-in session (reptyr -T) stays a child of the shell in its old
+// tab, and closing that tab normally hangs the shell up, which takes the
+// session down. Killing the konsole process leaves the shell alone — but
+// only when that process hosts nothing else. Otherwise the tab is marked
+// and the pane says to keep it open.
+void MainWindow::closeHusk(const QString &chatID, int movedPid) {
     const int kpid = ProcessScout::ancestorPidOfComm(movedPid, QStringLiteral("konsole"));
 
-    if (kpid > 0 && KonsoleTitles::sessionCount(kpid) == 1)
+    if (kpid <= 0)
+        return;
+
+    if (KonsoleTitles::sessionCount(kpid) == 1) {
         kill(kpid, SIGTERM);
+        return;
+    }
+
+    int tabShell = movedPid;
+
+    while (tabShell > 1 && ProcessScout::parentPid(tabShell) != kpid)
+        tabShell = ProcessScout::parentPid(tabShell);
+
+    // \xe2\x9a\xa0 = "⚠", \xe2\x80\x94 = "—"
+    KonsoleTitles::markTab(kpid, tabShell,
+                           QString::fromUtf8("\xe2\x9a\xa0 in Rezoom \xe2\x80\x94 keep open"));
+
+    if (TerminalPane *pane = panes.value(chatID))
+        pane->showHuskBanner();
 }
 
 void MainWindow::verifyPull(const QString &chatID, int pid) {
@@ -1599,7 +1621,7 @@ void MainWindow::verifyPull(const QString &chatID, int pid) {
 
     // On success reptyr stays alive under our shell as the tty forwarder.
     if (!ProcessScout::findDescendants(pane->shellPID(), {"reptyr"}).isEmpty()) {
-        closeHusk(pid);
+        closeHusk(chatID, pid);
         return;
     }
 

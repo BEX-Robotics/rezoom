@@ -43,6 +43,9 @@ public:
     void hideExternalBanner();
     bool hasExternalBanner() const { return bannerMode == BannerMode::External; }
 
+    // After a beam-in whose old Konsole tab couldn't be closed safely.
+    void showHuskBanner();
+
 signals:
     void terminated(const QString &chatID);
     void childClaude(const QString &chatID, int claudePID);
@@ -76,7 +79,7 @@ private:
     int lastClaudePID = 0;
     int sshPID = 0;
     QStringList sshCommand;
-    enum class BannerMode { None, SshEnded, External };
+    enum class BannerMode { None, SshEnded, External, HuskKept };
 
     QFrame *banner = 0;
     QPushButton *bannerButton = 0;

@@ -55,3 +55,6 @@ void TerminalPane::showExternalBanner(int) {
 
 void TerminalPane::hideExternalBanner() {
 }
+
+void TerminalPane::showHuskBanner() {
+}

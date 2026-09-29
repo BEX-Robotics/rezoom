@@ -69,7 +69,7 @@ private:
     void beamIntoPane(const QString &chatID, int pid);
     void updatePaneBanners();
     void verifyPull(const QString &chatID, int pid);
-    void closeHusk(int movedPid);
+    void closeHusk(const QString &chatID, int movedPid);
     void offerPullRecovery(const QString &chatID, int pid, const QString &why,
                            const QString &fixCommand);
     void closeAttemptPane(const QString &chatID);

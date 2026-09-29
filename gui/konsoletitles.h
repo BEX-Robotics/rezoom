@@ -17,6 +17,10 @@ int sessionCount(int konsolePid);
 // "" when the title doesn't look like claude at all.
 QString claudeStateFromTitle(const QString &title);
 
+// Pin the tab title of the session whose shell is shellPid (both local and
+// remote formats), so claude's own title updates can't replace the warning.
+bool markTab(int konsolePid, int shellPid, const QString &title);
+
 // "✳ BIT architecture review" → "BIT architecture review".
 QString stripStatusGlyph(QString title);
 }
