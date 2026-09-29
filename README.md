@@ -116,8 +116,8 @@ and single-instance is off there (the session store stays consistent anyway).
 ## CLI
 
 ```sh
-rezoom-cli list                  # chats + live presence (TSV)
-rezoom-cli resume <query>        # reopen a chat in a terminal window
+rezoom-cli list                  # chats + live presence + agent name (TSV)
+rezoom-cli resume <query>        # reopen a chat; query = agent name (bex-6b), id or title
 rezoom-cli resume <query> --print
 rezoom-cli adopt-running         # adopt every untracked running claude
 rezoom-cli prune                 # drop dead chats stranded in /tmp

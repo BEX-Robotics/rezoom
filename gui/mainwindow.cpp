@@ -2079,6 +2079,14 @@ void MainWindow::adoptRemoteFindings(const Chat &base, const QList<RemoteFinding
 }
 
 void MainWindow::resumeByQuery(const QString &query) {
+    // Claude's own name for a running session ("bex-6b") is exact — try it first.
+    for (const Chat &c : store.chats()) {
+        if (agentNameFor(c).compare(query, Qt::CaseInsensitive) == 0) {
+            selectChat(c.id);
+            return; // it's running, so nothing to launch
+        }
+    }
+
     for (const Chat &c : store.chats()) {
         if (!c.id.startsWith(query) && !c.claudeSessionID.startsWith(query)
             && !c.title.contains(query, Qt::CaseInsensitive))

@@ -23,9 +23,9 @@ static int cmdList(SessionStore &store, LiveRegistry &registry) {
     for (const Chat &c : store.chats()) {
         const auto live = registry.entryForSession(c.claudeSessionID);
         const QString presence = live ? live->status : QStringLiteral("-");
-        printf("%s\t%s\t%s\t%s\t%s\t%s\n", qPrintable(c.id.left(8)), qPrintable(presence),
+        printf("%s\t%s\t%s\t%s\t%s\t%s\t%s\n", qPrintable(c.id.left(8)), qPrintable(presence),
                qPrintable(c.kind), qPrintable(c.title), qPrintable(c.cwd),
-               qPrintable(c.claudeSessionID.left(8)));
+               qPrintable(c.claudeSessionID.left(8)), qPrintable(live ? live->name : QString()));
     }
 
     return 0;
@@ -35,9 +35,19 @@ static int cmdResume(SessionStore &store, LiveRegistry &registry, Templates &tem
                      const QString &query, bool printOnly) {
     QList<const Chat *> hits;
 
+    // Claude's own name for a running session ("bex-6b") is exact and
+    // unique — it wins over looser id/title matches.
+    for (const Chat &c : store.chats()) {
+        const auto live = registry.entryForSession(c.claudeSessionID);
+
+        if (live && live->name.compare(query, Qt::CaseInsensitive) == 0)
+            hits.append(&c);
+    }
+
     for (const Chat &c : store.chats())
-        if (c.id.startsWith(query) || c.claudeSessionID.startsWith(query)
-            || c.title.contains(query, Qt::CaseInsensitive))
+        if (hits.isEmpty()
+            && (c.id.startsWith(query) || c.claudeSessionID.startsWith(query)
+                || c.title.contains(query, Qt::CaseInsensitive)))
             hits.append(&c);
 
     if (hits.isEmpty()) {
