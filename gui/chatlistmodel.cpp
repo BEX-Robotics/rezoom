@@ -274,9 +274,40 @@ void ChatListModel::setRemoteStates(const QHash<QString, QString> &states) {
     rebuild();
 }
 
+void ChatListModel::setBeamable(const QSet<QString> &ids) {
+    beamableIDs = ids;
+}
+
 void ChatListModel::setSshEnded(const QSet<QString> &ids) {
     sshEndedIDs = ids;
     rebuild();
+}
+
+QString ChatListModel::statusFor(const Chat &c, const std::optional<LiveEntry> &live,
+                                 SessionHealth::Health &health) const {
+    QString status = live ? live->status : QStringLiteral("off");
+
+    // Codex & friends have no live registry — an open pane means "live".
+    if (!live && embeddedIDs.contains(c.id))
+        status = QStringLiteral("live");
+
+    // ssh in a terminal window, with claude's state read from its title.
+    if (!live && !embeddedIDs.contains(c.id) && remoteStates.contains(c.id))
+        status = remoteStates.value(c.id);
+
+    if (live) {
+        health = SessionHealth::of(*live);
+
+        if (health.state == SessionHealth::State::Suspended)
+            status = QStringLiteral("suspended");
+        else if (health.state == SessionHealth::State::Stalled)
+            status = QStringLiteral("stalled");
+    }
+
+    if (sshEndedIDs.contains(c.id))
+        status = QStringLiteral("sshended");
+
+    return status;
 }
 
 QList<ChatListModel::Row> ChatListModel::buildRows() const {
@@ -292,30 +323,8 @@ QList<ChatListModel::Row> ChatListModel::buildRows() const {
 
         Sortable s = {};
         const auto live = registry->entryForSession(c.claudeSessionID);
-        QString status = live ? live->status : QStringLiteral("off");
-
-        // Codex & friends have no live registry — an open pane means "live".
-        if (!live && embeddedIDs.contains(c.id))
-            status = QStringLiteral("live");
-
-        // ssh in a terminal window, with claude's state read from its title.
-        if (!live && !embeddedIDs.contains(c.id) && remoteStates.contains(c.id))
-            status = remoteStates.value(c.id);
-
         SessionHealth::Health health = {};
-
-        if (live) {
-            health = SessionHealth::of(*live);
-
-            if (health.state == SessionHealth::State::Suspended)
-                status = QStringLiteral("suspended");
-            else if (health.state == SessionHealth::State::Stalled)
-                status = QStringLiteral("stalled");
-        }
-
-        if (sshEndedIDs.contains(c.id))
-            status = QStringLiteral("sshended");
-
+        const QString status = statusFor(c, live, health);
         s.lastActive = c.lastActiveAt;
         s.row = makeRow(c, status);
 
@@ -323,10 +332,12 @@ QList<ChatListModel::Row> ChatListModel::buildRows() const {
         if (live && live->name != s.row.title)
             s.row.agentName = live->name;
 
+        s.row.beamable = beamableIDs.contains(c.id);
+
         applyHealthPreview(s.row, health);
         s.row.timeText = relativeTime(s.lastActive);
         tmp.append(s);
-    } // for each chat
+    }
 
     std::stable_sort(tmp.begin(), tmp.end(), [](const Sortable &a, const Sortable &b) {
         return a.lastActive > b.lastActive;
@@ -386,6 +397,7 @@ QVariant ChatListModel::data(const QModelIndex &index, int role) const {
     case KindRole:     return r.kind;
     case ZoneRole:     return r.zone;
     case AgentNameRole: return r.agentName;
+    case BeamableRole: return r.beamable;
     case Qt::ToolTipRole: return r.tooltip;
     }
 

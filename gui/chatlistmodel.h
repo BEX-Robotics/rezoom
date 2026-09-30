@@ -28,6 +28,7 @@ public:
         KindRole,
         ZoneRole,  // account zone name, "" = default
         AgentNameRole, // claude's name for the running process ("bex-6b"), "" = none
+        BeamableRole,  // runs in another window and can be beamed in right now
     };
 
     ChatListModel(SessionStore *store, LiveRegistry *registry,
@@ -43,6 +44,7 @@ public:
     void setEmbedded(const QSet<QString> &ids);
     void setSshEnded(const QSet<QString> &ids);
     void setRemoteStates(const QHash<QString, QString> &states);
+    void setBeamable(const QSet<QString> &ids); // takes effect on the next rebuild
     void setLiveTitles(const QHash<QString, QString> &titles);
     void setLivePreviews(const QHash<QString, QString> &previews);
     QString idAt(const QModelIndex &index) const;
@@ -66,11 +68,14 @@ private:
         QString kind;
         QString zone;
         QString agentName;
+        bool beamable = false;
         bool unread = false;
     };
 
     Row makeRow(const Chat &c, const QString &liveStatus) const;
     QList<Row> buildRows() const;
+    QString statusFor(const Chat &c, const std::optional<LiveEntry> &live,
+                      SessionHealth::Health &health) const;
     void applyHealthPreview(Row &row, const SessionHealth::Health &h) const;
     QString tooltipFor(const Chat &c, const Row &row) const;
     bool matchesFilter(const Chat &c) const;
@@ -86,6 +91,7 @@ private:
     QSet<QString> unreadIDs;
     QSet<QString> embeddedIDs;
     QSet<QString> sshEndedIDs; // panes whose ssh exited (until reconnect/dismiss)
+    QSet<QString> beamableIDs; // running in another window, reptyr can pull them in
     QHash<QString, QString> remoteStates; // external ssh chats: busy / idle / live
     QHash<QString, QString> liveTitles;   // display-only, e.g. konsole caption
     QHash<QString, QString> livePreviews; // display-only, busy-session tail

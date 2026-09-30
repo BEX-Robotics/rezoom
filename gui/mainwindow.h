@@ -53,6 +53,7 @@ private:
         bool unreadChanged = false;
     };
 
+    QListView *buildChatList(QWidget *panel);
     QWidget *buildLeftPanel();
     QWidget *buildRightPanel();
     void buildNewMenu(QPushButton *button);
@@ -68,6 +69,7 @@ private:
     void pullInLive(const QString &chatID);
     void beamIntoPane(const QString &chatID, int pid);
     void updatePaneBanners();
+    void updateBeamable();
     void verifyPull(const QString &chatID, int pid);
     void closeHusk(const QString &chatID, int movedPid);
     void offerPullRecovery(const QString &chatID, int pid, const QString &why,

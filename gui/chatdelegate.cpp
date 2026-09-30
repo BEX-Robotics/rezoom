@@ -1,6 +1,7 @@
 #include <QAbstractItemView>
 #include <QFontDatabase>
 #include <QHelpEvent>
+#include <QMouseEvent>
 #include <QPainter>
 #include <QToolTip>
 
@@ -76,6 +77,7 @@ struct RowGeometry {
     QRect unread;
     QRect pill;
     QRect chip;
+    QRect beam; // null unless the row is beamable
 };
 
 static RowGeometry rowGeometry(const QStyleOptionViewItem &opt, const QModelIndex &index) {
@@ -91,6 +93,9 @@ static RowGeometry rowGeometry(const QStyleOptionViewItem &opt, const QModelInde
     const int timeW = opt.fontMetrics.horizontalAdvance(index.data(ChatListModel::TimeRole).toString()) + 6;
     g.pill = zonePillRect(opt, g.line1, timeW, index.data(ChatListModel::ZoneRole).toString());
     g.chip = agentChipRect(opt, g.line1, index.data(ChatListModel::AgentNameRole).toString());
+
+    if (index.data(ChatListModel::BeamableRole).toBool()) // left of the unread mark
+        g.beam = QRect(g.row.right() - 42, g.line2.center().y() - 10, 22, 20);
 
     return g;
 }
@@ -272,6 +277,9 @@ static void paintPreviewLine(QPainter *p, const QStyleOptionViewItem &opt, const
     if (unread)
         prevW -= 14;
 
+    if (index.data(ChatListModel::BeamableRole).toBool())
+        prevW -= 30;
+
     const QString preview = QFontMetrics(prevFont).elidedText(
         index.data(ChatListModel::PreviewRole).toString(), Qt::ElideRight, prevW);
     p->drawText(line2, Qt::AlignLeft | Qt::AlignVCenter, preview);
@@ -281,6 +289,39 @@ static void paintPreviewLine(QPainter *p, const QStyleOptionViewItem &opt, const
         p->setBrush(QColor("#3fa34d"));
         p->drawEllipse(QRect(r.right() - 14, line2.center().y() - 4, 9, 9));
     }
+}
+
+// \xe2\xa4\xb5 = UTF-8 for "⤵" — the same mark as the Beam it in button.
+static void paintBeamButton(QPainter *p, const QStyleOptionViewItem &opt, const QRect &beam) {
+    if (beam.isNull())
+        return;
+
+    QColor fill("#2aa198");
+    fill.setAlpha(opt.state & QStyle::State_MouseOver ? 70 : 35);
+    p->setPen(Qt::NoPen);
+    p->setBrush(fill);
+    p->drawRoundedRect(beam, 5, 5);
+    QFont f = opt.font;
+    f.setBold(true);
+    p->setFont(f);
+    p->setPen(QColor("#2aa198"));
+    p->drawText(beam, Qt::AlignCenter, QString::fromUtf8("\xe2\xa4\xb5"));
+}
+
+bool ChatDelegate::editorEvent(QEvent *e, QAbstractItemModel *model,
+                               const QStyleOptionViewItem &opt, const QModelIndex &index) {
+    if (e->type() == QEvent::MouseButtonRelease) {
+        const QRect beam = rowGeometry(opt, index).beam;
+        const auto *me = static_cast<QMouseEvent *>(e);
+
+        if (!beam.isNull() && beam.contains(me->position().toPoint())
+            && me->button() == Qt::LeftButton) {
+            emit beamRequested(index.data(ChatListModel::IdRole).toString());
+            return true;
+        }
+    }
+
+    return QStyledItemDelegate::editorEvent(e, model, opt, index);
 }
 
 void ChatDelegate::paint(QPainter *p, const QStyleOptionViewItem &opt,
@@ -295,6 +336,7 @@ void ChatDelegate::paint(QPainter *p, const QStyleOptionViewItem &opt,
     const bool unread = index.data(ChatListModel::UnreadRole).toBool();
     paintTitleLine(p, opt, g.line1, index, unread);
     paintPreviewLine(p, opt, g.row, g.line2, index, unread);
+    paintBeamButton(p, opt, g.beam);
 
     p->restore();
 }
@@ -346,6 +388,10 @@ static QString partTooltip(const QStyleOptionViewItem &opt, const QModelIndex &i
     if (index.data(ChatListModel::UnreadRole).toBool() && g.unread.adjusted(-4, -4, 4, 4).contains(pos))
         return QObject::tr("Unread: this session finished something while you were in "
                            "another chat. Opening it clears the mark.");
+
+    if (!g.beam.isNull() && g.beam.contains(pos))
+        return QObject::tr("Beam it in: move this running session into a Rezoom pane, "
+                           "live (Ctrl+Shift+Return).");
 
     if (!g.chip.isNull() && g.chip.contains(pos)) // \xe2\x80\x94 = UTF-8 for "—"
         return QObject::tr("Claude Code's name for this running session \xe2\x80\x94 what other "

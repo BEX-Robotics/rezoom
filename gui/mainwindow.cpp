@@ -157,6 +157,7 @@ void MainWindow::startTimers() {
         scanExternalSsh();
         refreshExternalTitles();
         updatePaneBanners();
+        updateBeamable();
         model->rebuild();
         updateAttention();
 
@@ -307,6 +308,26 @@ void MainWindow::resumePrevious() {
     }
 }
 
+QListView *MainWindow::buildChatList(QWidget *panel) {
+    list = new QListView(panel);
+    list->setModel(model);
+    auto *delegate = new ChatDelegate(list);
+    list->setItemDelegate(delegate);
+    connect(delegate, &ChatDelegate::beamRequested, this, [this](const QString &id) {
+        selectChat(id);
+        pullInLive(id);
+    });
+    list->setUniformItemSizes(true);
+    list->setMouseTracking(true);
+    list->setFrameShape(QFrame::NoFrame);
+    list->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(list->selectionModel(), &QItemSelectionModel::currentChanged,
+            this, &MainWindow::onChatSelected);
+    connect(list, &QListView::customContextMenuRequested, this, &MainWindow::showContextMenu);
+
+    return list;
+}
+
 QWidget *MainWindow::buildLeftPanel() {
     auto *panel = new QWidget(this);
     panel->setMinimumWidth(240);
@@ -321,17 +342,7 @@ QWidget *MainWindow::buildLeftPanel() {
     connect(search, &QLineEdit::textChanged, model, &ChatListModel::setFilter);
     layout->addWidget(search);
 
-    list = new QListView(panel);
-    list->setModel(model);
-    list->setItemDelegate(new ChatDelegate(list));
-    list->setUniformItemSizes(true);
-    list->setMouseTracking(true);
-    list->setFrameShape(QFrame::NoFrame);
-    list->setContextMenuPolicy(Qt::CustomContextMenu);
-    connect(list->selectionModel(), &QItemSelectionModel::currentChanged,
-            this, &MainWindow::onChatSelected);
-    connect(list, &QListView::customContextMenuRequested, this, &MainWindow::showContextMenu);
-    layout->addWidget(list, 1);
+    layout->addWidget(buildChatList(panel), 1);
 
     auto *bottom = new QHBoxLayout;
     auto *newBtn = new QPushButton(tr("+ New"), panel);
@@ -1578,6 +1589,19 @@ void MainWindow::beamIntoPane(const QString &chatID, int pid) {
     pane->hideExternalBanner();
     pane->typeCommand(Reptyr::command(pid));
     QTimer::singleShot(2500, this, [this, chatID, pid] { verifyPull(chatID, pid); });
+}
+
+// Rows running in another window get a beam-in button — only where a live
+// move can actually happen (reptyr on this platform, live moves on).
+void MainWindow::updateBeamable() {
+    QSet<QString> ids;
+
+    if (Reptyr::supported() && templates.liveMoves())
+        for (const Chat &c : store.chats())
+            if (!c.archived && externalPID(c) > 0)
+                ids.insert(c.id);
+
+    model->setBeamable(ids);
 }
 
 // Idle panes whose conversation now runs in another window say so.

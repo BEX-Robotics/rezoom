@@ -20,4 +20,11 @@ public:
 
     bool helpEvent(QHelpEvent *event, QAbstractItemView *view,
                    const QStyleOptionViewItem &option, const QModelIndex &index) override;
+
+    // The row's small beam-in button (sessions running in another window).
+    bool editorEvent(QEvent *event, QAbstractItemModel *model,
+                     const QStyleOptionViewItem &option, const QModelIndex &index) override;
+
+signals:
+    void beamRequested(const QString &chatID);
 };
