@@ -1218,7 +1218,9 @@ Chat MainWindow::chatFromLive(const LiveEntry &e) {
     c.claudeSessionID = e.sessionID;
     c.zone = e.zone;
     c.cwd = e.cwd;
-    c.lastActiveAt = e.updatedAt;
+    if (e.updatedAt > 0) // else keep create()'s "now" — it just appeared
+        c.lastActiveAt = e.updatedAt;
+
     const QString first = TranscriptIndex::previewForSession(e.sessionID);
     const bool derived = e.nameSource == "derived" || e.name.isEmpty();
     c.title = (derived && !first.isEmpty()) ? first.left(40) : e.name;

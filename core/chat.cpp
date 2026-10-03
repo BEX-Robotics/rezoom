@@ -100,6 +100,9 @@ Chat Chat::fromJson(const QJsonObject &o) {
     c.createdAt = static_cast<qint64>(o["createdAt"].toDouble());
     c.lastActiveAt = static_cast<qint64>(o["lastActiveAt"].toDouble());
 
+    if (c.lastActiveAt <= 0) // never recorded — sort by creation, not as 1970
+        c.lastActiveAt = c.createdAt;
+
     return c;
 }
 

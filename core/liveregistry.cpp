@@ -69,7 +69,9 @@ static std::optional<LiveEntry> readPidFileIn(const Zones::Zone &z, int pid) {
     e.name = o["name"].toString();
     e.nameSource = o["nameSource"].toString();
     e.cwd = o["cwd"].toString();
-    e.updatedAt = static_cast<qint64>(o["updatedAt"].toDouble());
+
+    // A file caught mid-write can lack updatedAt; startedAt is written first.
+    e.updatedAt = static_cast<qint64>(o["updatedAt"].toDouble(o["startedAt"].toDouble()));
     e.zone = z.name;
 
     if (e.sessionID.isEmpty() || !LiveRegistry::pidAlive(e.pid))
