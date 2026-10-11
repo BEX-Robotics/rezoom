@@ -1,5 +1,5 @@
 Name:           rezoom
-Version:        1.1.0
+Version:        1.2.0
 Release:        1%{?dist}
 Summary:        Chat-list organizer for AI coding sessions (Claude Code, Codex) and terminals
 License:        MIT
@@ -37,6 +37,12 @@ floating group windows, archiving. Every session stays forever resumable.
 %{_datadir}/icons/hicolor/scalable/apps/rezoom.svg
 
 %changelog
+* Sun Oct 11 2026 Pavel <254324686+pavel-bex@users.noreply.github.com> - 1.2.0-1
+- Claude's orange spinner while working; green means your turn
+- Agent names (bex-6b) on rows, in search and resume; one-click beam-in per row
+- External ssh sessions as chats; suspended/stalled health; Reconnect bar
+- Optional multi-account zones; safer beam-in (old window handled)
+
 * Sat Sep 26 2026 Pavel <254324686+pavel-bex@users.noreply.github.com> - 1.1.0-1
 - Live titles from Konsole, live output previews, codex sessions
 - Beam-in/pop-out via reptyr -T, restart session, built-in window raise
