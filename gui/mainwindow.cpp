@@ -1001,6 +1001,11 @@ int MainWindow::externalPID(const Chat &c) const {
 // connection as a chat (auto-adopt on), remember which process runs it, and
 // read a claude inside it from the window title — all local, nothing connects.
 void MainWindow::scanExternalSsh() {
+    // A screenshot render shows demo data only — the machine's real ssh
+    // connections (host names) must never end up in a published image.
+    if (qEnvironmentVariableIsSet("REZOOM_SCREENSHOT"))
+        return;
+
     const QHash<int, QString> titles = KonsoleTitles::byKonsolePid();
     QHash<QString, int> pids;
     QHash<QString, QString> states;

@@ -6,7 +6,7 @@ Creates DIR/{data,claude,conf} with a demo chat store, a fake live registry
 freeze. Nothing here touches the real ~/.claude or ~/.local/share/rezoom.
 
 Run the app against it:
-    REZOOM_DATA_DIR=DIR/data REZOOM_CLAUDE_DIR=DIR/claude XDG_CONFIG_HOME=DIR/conf \\
+    QT_QPA_PLATFORM=offscreen REZOOM_DATA_DIR=DIR/data REZOOM_CLAUDE_DIR=DIR/claude XDG_CONFIG_HOME=DIR/conf \\
     REZOOM_SCREENSHOT=out.png dbus-run-session -- build/rezoom --resume Modal
 """
 import json
@@ -47,9 +47,14 @@ def chat(n, title, kind, preview, tint, cwd, ago_min, **extra):
     return c
 
 
+# Chat 1's pane prints a scripted claude frame instead of running claude, so
+# a hero shot (`--resume Rate-limit`) has a terminal worth looking at.
+demo_cmd = f"clear; cat {base}/fake-claude.txt; sleep 3600"
+
 chats = [
     chat(1, "Rate-limit the upload endpoint", "claude",
-         "Added a token bucket per API key — 12 tests pass.", "tint-green", "/home/dev/api-server", 1),
+         "Added a token bucket per API key — 12 tests pass.", "tint-green", "/home/dev/api-server", 1,
+         commandOverride=demo_cmd),
     chat(2, "Modal flickers on save", "claude",
          "Found it: the form re-mounts on every keystroke.", "tint-blue", "/home/dev/frontend", 3),
     chat(3, "Bisect the scheduler regression", "shell", "", "tint-red", "/home/dev/kernel", 8),
@@ -69,6 +74,32 @@ json.dump({"chats": chats}, open(f"{data}/sessions.json", "w"), indent=1)
 open(f"{data}/notifications.jsonl", "w").write(json.dumps(
     {"ts": now, "session_id": sid(6), "message": "You've reached your usage limit. Resets at 5pm.",
      "title": ""}) + "\n")
+
+E = "\033["
+g, d, b, r, o, c = E + "32m", E + "2m", E + "1m", E + "0m", E + "38;5;173m", E + "36m"
+open(f"{base}/fake-claude.txt", "w").write(f"""{d}~/dev/api-server{r} {g}❯{r} claude --resume d3m00001
+
+{o}●{r} Reading {b}src/routes/upload.ts{r} and {b}src/middleware/{r}
+
+{o}●{r} The upload route has no limiter, so one API key can saturate
+  the ingest queue. I'll add a token bucket keyed by API key:
+
+  {c}src/middleware/rateLimit.ts{r}   {g}+48{r}
+  {c}src/routes/upload.ts{r}          {g}+3{r}  {E}31m-1{r}
+  {c}test/rateLimit.test.ts{r}        {g}+71{r}
+
+{o}●{r} Ran {b}npm test -- rateLimit{r}
+  {g}✓{r} allows a burst up to the bucket size
+  {g}✓{r} refills at 5 tokens/s
+  {g}✓{r} returns 429 with Retry-After when empty
+  {d}… 9 more{r}
+
+{o}●{r} Done. Uploads are capped at 10/s per key with a burst of 20;
+  over-limit requests get {b}429{r} and a {b}Retry-After{r} header.
+
+{d}────────────────────────────────────────────────────────────{r}
+{g}❯{r} {d}_{r}
+""")
 
 # "Modal flickers" finished while you were elsewhere.
 open(f"{conf}/rezoom/rezoom.conf", "w").write("[ui]\nunread=c002\n")
