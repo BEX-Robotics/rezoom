@@ -70,8 +70,8 @@ private:
     void beamIntoPane(const QString &chatID, int pid);
     void updatePaneBanners();
     void updateBeamable();
-    void verifyPull(const QString &chatID, int pid);
-    void closeHusk(const QString &chatID, int movedPid);
+    void verifyPull(const QString &chatID, int pid, int attempt = 0);
+    void closeHusk(const QString &chatID, int movedPid, int attempt = 0);
     void offerPullRecovery(const QString &chatID, int pid, const QString &why,
                            const QString &fixCommand);
     void closeAttemptPane(const QString &chatID);

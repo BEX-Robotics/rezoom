@@ -1568,7 +1568,7 @@ void MainWindow::pullInLive(const QString &chatID) {
     }
 
     launchChat(chatID, Reptyr::command(pid));
-    QTimer::singleShot(2500, this, [this, chatID, pid] { verifyPull(chatID, pid); });
+    QTimer::singleShot(1000, this, [this, chatID, pid] { verifyPull(chatID, pid); });
 }
 
 // Beam an external session into this chat's existing (idle) pane: type the
@@ -1590,7 +1590,7 @@ void MainWindow::beamIntoPane(const QString &chatID, int pid) {
 
     pane->hideExternalBanner();
     pane->typeCommand(Reptyr::command(pid));
-    QTimer::singleShot(2500, this, [this, chatID, pid] { verifyPull(chatID, pid); });
+    QTimer::singleShot(1000, this, [this, chatID, pid] { verifyPull(chatID, pid); });
 }
 
 // Rows running in another window get a beam-in button — only where a live
@@ -1620,21 +1620,28 @@ void MainWindow::updatePaneBanners() {
 }
 
 // After reptyr -T the old Konsole window is a husk: frozen last frame,
-// input going nowhere. Closing it is safe (the moved process survives —
-// verified), but only a single-session window: never take tabs down with it.
-// A beamed-in session (reptyr -T) stays a child of the shell in its old
+// input going nowhere. A beamed-in session (reptyr -T) stays a child of the shell in its old
 // tab, and closing that tab normally hangs the shell up, which takes the
 // session down. Killing the konsole process leaves the shell alone — but
 // only when that process hosts nothing else. Otherwise the tab is marked
 // and the pane says to keep it open.
-void MainWindow::closeHusk(const QString &chatID, int movedPid) {
+// The tab count comes from the process tree (one shell per tab), not DBus:
+// right after the steal, konsole can still be frozen under reptyr's ptrace
+// and miss a DBus call — which used to leave single-tab husks open.
+void MainWindow::closeHusk(const QString &chatID, int movedPid, int attempt) {
     const int kpid = ProcessScout::ancestorPidOfComm(movedPid, QStringLiteral("konsole"));
 
     if (kpid <= 0)
         return;
 
-    if (KonsoleTitles::sessionCount(kpid) == 1) {
-        kill(kpid, SIGTERM);
+    if (ProcessScout::isTraced(kpid)) { // reptyr not done with it yet
+        const auto retry = [this, chatID, movedPid, attempt] {
+            closeHusk(chatID, movedPid, attempt + 1);
+        };
+
+        if (attempt < 10)
+            QTimer::singleShot(500, this, retry);
+
         return;
     }
 
@@ -1642,6 +1649,11 @@ void MainWindow::closeHusk(const QString &chatID, int movedPid) {
 
     while (tabShell > 1 && ProcessScout::parentPid(tabShell) != kpid)
         tabShell = ProcessScout::parentPid(tabShell);
+
+    if (ProcessScout::children(kpid) == QList<int>{tabShell}) {
+        kill(kpid, SIGTERM);
+        return;
+    }
 
     // \xe2\x9a\xa0 = "⚠", \xe2\x80\x94 = "—"
     KonsoleTitles::markTab(kpid, tabShell,
@@ -1651,7 +1663,9 @@ void MainWindow::closeHusk(const QString &chatID, int movedPid) {
         pane->showHuskBanner();
 }
 
-void MainWindow::verifyPull(const QString &chatID, int pid) {
+// Polled, not a single look: a slow shell start must not turn a beam that
+// is still starting into a "failed" dialog.
+void MainWindow::verifyPull(const QString &chatID, int pid, int attempt) {
     TerminalPane *pane = panes.value(chatID);
 
     if (!pane)
@@ -1660,6 +1674,13 @@ void MainWindow::verifyPull(const QString &chatID, int pid) {
     // On success reptyr stays alive under our shell as the tty forwarder.
     if (!ProcessScout::findDescendants(pane->shellPID(), {"reptyr"}).isEmpty()) {
         closeHusk(chatID, pid);
+        return;
+    }
+
+    if (attempt < 8) {
+        QTimer::singleShot(500, this, [this, chatID, pid, attempt] {
+            verifyPull(chatID, pid, attempt + 1);
+        });
         return;
     }
 

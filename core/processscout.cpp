@@ -139,6 +139,10 @@ int parentPid(int pid) {
     return 0;
 }
 
+bool isTraced(int) {
+    return false;
+}
+
 bool isStopped(int pid) {
     for (const kinfo_proc &p : allProcs())
         if (p.kp_proc.p_pid == pid)
@@ -182,6 +186,19 @@ int parentPid(int pid) {
 // debugger or reptyr mid-attach) is transient and deliberately not counted.
 bool isStopped(int pid) {
     return statFields(pid).value(0) == QLatin1String("T");
+}
+
+bool isTraced(int pid) {
+    QFile f(QStringLiteral("/proc/%1/status").arg(pid));
+
+    if (!f.open(QIODevice::ReadOnly))
+        return false;
+
+    for (const QByteArray &line : f.readAll().split('\n'))
+        if (line.startsWith("TracerPid:"))
+            return line.mid(10).trimmed().toInt() != 0;
+
+    return false;
 }
 
 int processGroup(int pid) {

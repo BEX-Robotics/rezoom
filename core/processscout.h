@@ -52,6 +52,9 @@ bool isStopped(int pid);
 // Process group (the shell job it belongs to); 0 when unknown.
 int processGroup(int pid);
 
+// Under ptrace right now (a debugger, or reptyr mid-steal); false off Linux.
+bool isTraced(int pid);
+
 // Nearest ancestor whose comm matches (0 = none) — e.g. the konsole window
 // hosting a claude, or detecting tool-spawned claude-under-claude.
 int ancestorPidOfComm(int pid, const QString &comm);
