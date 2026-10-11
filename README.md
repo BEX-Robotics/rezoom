@@ -27,15 +27,18 @@ theme, embeds real Konsole terminals.
   resumable — its live title, and its latest output while it works. New sessions
   appear on their own; tool-spawned ones (in `/tmp`, or started by another claude)
   are left out.
-- **Find the one you mean.** External sessions carry their Konsole window title,
-  and search matches titles, messages and folders.
+- **Find the one you mean.** Each running session shows the name other agents
+  call it by (`bex-6b`), external sessions carry their Konsole window title, and
+  search matches names, titles, messages and folders.
 - **Never lose a session.** Every chat keeps the exact command that brings it back.
   Whatever was running comes back when Rezoom starts, even after a crash.
 - **Move sessions without killing them.** A session running in some other Konsole
-  window can be beamed into Rezoom live (reptyr), or you can jump to its window.
-  "Restart to update" is one keystroke per session.
+  window gets a ⤵ on its row: one click beams it into Rezoom live (reptyr), and the
+  old window is closed for you. Or jump to its window. "Restart to update" is one
+  keystroke per session.
 - **Rezoom over SSH.** An `ssh` typed in any pane is recorded as that chat's way back
-  in; live ssh connections can be adopted; **Scan remote** lists the claude and tmux
+  in; an ssh open in any Konsole tab shows up as a chat, with the remote claude's
+  working/your-turn state read from its title; **Scan remote** lists the claude and tmux
   sessions on a host and adopts each one, resuming with `ssh -t host 'claude --resume …'`.
   Nothing connects until you click.
 - **More than one Claude login? Optional.** Right-click a chat → **Run under another
@@ -71,7 +74,7 @@ default). SSH chats never connect until you click.
 [latest release](https://github.com/BEX-Robotics/rezoom/releases/latest):
 
 ```sh
-sudo apt install ./rezoom_1.1.0_amd64.deb   # pulls Qt6/KF6/konsole-kpart via apt
+sudo apt install ./rezoom_1.2.0_amd64.deb   # pulls Qt6/KF6/konsole-kpart via apt
 ```
 
 **Fedora/openSUSE** — build from the spec: `rpmbuild -ba dist/rezoom.spec`.
