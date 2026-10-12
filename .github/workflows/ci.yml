@@ -47,6 +47,15 @@ jobs:
           gh release upload "${{ github.event.release.tag_name }}" dist/*.deb \
             --repo "${{ github.repository }}" --clobber
 
+  apt:
+    name: apt repository
+    needs: linux
+    if: github.event_name == 'release'
+    uses: ./.github/workflows/apt.yml
+    with:
+      tag: ${{ github.event.release.tag_name }}
+    secrets: inherit
+
   arch:
     name: Arch (AUR PKGBUILD via makepkg)
     runs-on: ubuntu-latest

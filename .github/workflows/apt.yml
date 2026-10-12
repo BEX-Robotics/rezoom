@@ -1,0 +1,57 @@
+name: apt repository
+
+# Adds a release's .deb to the signed apt repo on the gh-pages branch
+# (https://bex-robotics.github.io/rezoom). CI calls it after attaching the .deb
+# to a release; run it by hand to (re)publish an existing tag.
+on:
+  workflow_call:
+    inputs:
+      tag:
+        type: string
+        required: true
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag whose .deb to publish, e.g. v1.2.0
+        required: true
+
+permissions:
+  contents: write # pushes gh-pages
+
+concurrency:
+  group: apt-repository
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check out gh-pages (created on first publish)
+        run: |
+          if git ls-remote --exit-code --heads origin gh-pages >/dev/null; then
+            git fetch --depth 1 origin gh-pages:refs/remotes/origin/gh-pages
+            git worktree add site origin/gh-pages
+          else
+            git worktree add --detach site
+            git -C site checkout --orphan gh-pages
+            git -C site rm -rfq .
+          fi
+      - name: Download the release .deb
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download "${{ inputs.tag }}" --pattern '*.deb' --dir debs
+      - name: Publish and sign
+        env:
+          BEX_APT_SIGNING_KEY: ${{ secrets.BEX_APT_SIGNING_KEY }}
+        run: |
+          echo "$BEX_APT_SIGNING_KEY" | gpg --batch --import
+          scripts/publish-apt.sh site debs/*.deb
+      - name: Push gh-pages
+        run: |
+          cd site
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -qm "apt: publish ${{ inputs.tag }}"
+          git push origin HEAD:gh-pages

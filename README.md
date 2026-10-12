@@ -70,12 +70,19 @@ default). SSH chats never connect until you click.
 
 ## Install
 
-**Debian/Ubuntu (25.04 or newer, for KF6)** — download the `.deb` from the
-[latest release](https://github.com/BEX-Robotics/rezoom/releases/latest):
+**Debian/Ubuntu (25.04 or newer, for KF6)** — add the signed apt repository once,
+and `apt upgrade` brings every new release:
 
 ```sh
-sudo apt install ./rezoom_1.2.0_amd64.deb   # pulls Qt6/KF6/konsole-kpart via apt
+sudo curl -fsSLo /etc/apt/keyrings/bex.asc https://bex-robotics.github.io/rezoom/bex.asc
+echo "deb [signed-by=/etc/apt/keyrings/bex.asc] https://bex-robotics.github.io/rezoom stable main" |
+    sudo tee /etc/apt/sources.list.d/rezoom.list
+sudo apt update && sudo apt install rezoom   # pulls Qt6/KF6/konsole-kpart via apt
 ```
+
+Or download the `.deb` from the
+[latest release](https://github.com/BEX-Robotics/rezoom/releases/latest) and
+`sudo apt install ./rezoom_1.2.0_amd64.deb`.
 
 **Fedora/openSUSE** — build from the spec: `rpmbuild -ba dist/rezoom.spec`.
 
