@@ -997,6 +997,31 @@ int MainWindow::externalPID(const Chat &c) const {
     return sshPIDs.value(c.id);
 }
 
+// externalPID, but only when reptyr can take it: a leftover claude whose
+// conversation moved on to a Claude background session keeps running with
+// no terminal at all, and reptyr can only fail on it.
+int MainWindow::beamablePID(const Chat &c) const {
+    const int pid = externalPID(c);
+    return pid > 0 && ProcessScout::onPty(pid) ? pid : 0;
+}
+
+// Explains, instead of attempting, a move that can't happen; true = refused.
+bool MainWindow::refuseUnbeamable(int pid) {
+    if (ProcessScout::onPty(pid))
+        return false;
+
+    QMessageBox box(QMessageBox::Information, tr("Live move"),
+                    tr("Process %1 has no terminal, so it can't be moved here. If its "
+                       "conversation was sent to the background, it continues in a "
+                       "Claude background session: `claude agents` lists them, "
+                       "`claude attach <id>` opens one.").arg(pid),
+                    QMessageBox::Ok, this);
+    box.setTextInteractionFlags(Qt::TextSelectableByMouse);
+    box.exec();
+
+    return true;
+}
+
 // ssh sessions started by hand in terminal windows: adopt each distinct
 // connection as a chat (auto-adopt on), remember which process runs it, and
 // read a claude inside it from the window title — all local, nothing connects.
@@ -1411,7 +1436,7 @@ void MainWindow::showContextMenu(const QPoint &pos) {
             menu.addAction(tr("Go to its window"), this, [this, pid] { raiseExternal(pid); });
 
         // \xe2\xa4\xb5 = UTF-8 for "⤵" — reptyr-only, hidden where it can't run
-        if (Reptyr::supported())
+        if (Reptyr::supported() && ProcessScout::onPty(pid))
             menu.addAction(tr("\xe2\xa4\xb5 Beam it in"), this, [this, id] { pullInLive(id); });
     }
 
@@ -1551,7 +1576,7 @@ void MainWindow::pullInLive(const QString &chatID) {
 
     const int pid = externalPID(*c);
 
-    if (pid <= 0)
+    if (pid <= 0 || refuseUnbeamable(pid))
         return;
 
     if (panes.contains(chatID)) { // idle pane left behind — reuse it
@@ -1581,7 +1606,7 @@ void MainWindow::pullInLive(const QString &chatID) {
 void MainWindow::beamIntoPane(const QString &chatID, int pid) {
     TerminalPane *pane = panes.value(chatID);
 
-    if (!pane || pid <= 0)
+    if (!pane || pid <= 0 || refuseUnbeamable(pid))
         return;
 
     const Reptyr::Status rs = Reptyr::status();
@@ -1605,7 +1630,7 @@ void MainWindow::updateBeamable() {
 
     if (Reptyr::supported() && templates.liveMoves())
         for (const Chat &c : store.chats())
-            if (!c.archived && externalPID(c) > 0)
+            if (!c.archived && beamablePID(c) > 0)
                 ids.insert(c.id);
 
     model->setBeamable(ids);
@@ -1615,7 +1640,7 @@ void MainWindow::updateBeamable() {
 void MainWindow::updatePaneBanners() {
     for (auto it = panes.constBegin(); it != panes.constEnd(); ++it) {
         const Chat *c = store.find(it.key());
-        const int pid = c ? externalPID(*c) : 0;
+        const int pid = c ? beamablePID(*c) : 0;
 
         if (pid > 0)
             it.value()->showExternalBanner(pid);

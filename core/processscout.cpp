@@ -262,6 +262,20 @@ QString tty(int pid) {
 #endif
 }
 
+bool onPty(int pid) {
+#ifdef Q_OS_MACOS
+    Q_UNUSED(pid);
+    return true;
+#else
+    for (int fd = 0; fd <= 2; fd++)
+        if (QFile::symLinkTarget(QStringLiteral("/proc/%1/fd/%2").arg(pid).arg(fd))
+                .startsWith(QLatin1String("/dev/pts/")))
+            return true;
+
+    return false;
+#endif
+}
+
 QList<int> descendants(int pid) {
     QList<int> out;
     QList<int> queue = children(pid);

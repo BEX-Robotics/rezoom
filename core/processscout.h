@@ -63,4 +63,9 @@ bool hasAncestorComm(int pid, const QString &comm);
 // The pty a process reads from (/proc/<pid>/fd/0 target) — empty on macOS.
 // Comparing before/after tells whether a reptyr move actually happened.
 QString tty(int pid);
+
+// reptyr can only steal a pty a process reads or writes: false when none of
+// its stdin/stdout/stderr is a /dev/pts (e.g. a claude whose conversation
+// moved to a background session). Always true on macOS (no reptyr there).
+bool onPty(int pid);
 }
