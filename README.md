@@ -82,7 +82,7 @@ sudo apt update && sudo apt install rezoom   # pulls Qt6/KF6/konsole-kpart via a
 
 Or download the `.deb` from the
 [latest release](https://github.com/BEX-Robotics/rezoom/releases/latest) and
-`sudo apt install ./rezoom_1.2.0_amd64.deb`.
+`sudo apt install ./rezoom_1.2.1_amd64.deb`.
 
 **Fedora/openSUSE** — build from the spec: `rpmbuild -ba dist/rezoom.spec`.
 

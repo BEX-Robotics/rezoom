@@ -1,6 +1,6 @@
 # Maintainer: Pavel <254324686+pavel-bex@users.noreply.github.com>
 pkgname=rezoom
-pkgver=1.2.0
+pkgver=1.2.1
 pkgrel=1
 pkgdesc="Chat-list organizer for AI coding sessions (Claude Code, Codex) and terminals"
 arch=(x86_64)
