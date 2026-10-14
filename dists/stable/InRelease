@@ -5,17 +5,17 @@ Origin: BEX
 Label: BEX
 Suite: stable
 Codename: stable
-Date: Wed, 14 Oct 2026 08:56:05 +0000
+Date: Wed, 14 Oct 2026 09:02:57 +0000
 Architectures: amd64
 Components: main
 Description: BEX Robotics packages
 SHA256:
- a0960265334410854794631803df03b12bb3b9e757714ce898a828c977db782a 802 main/binary-amd64/Packages
- eb9315b3ad5d2eba42dfd19ca547d54882a30b71d8fe7e24f970eb4425feffd5 544 main/binary-amd64/Packages.gz
+ 47a16afb54fc6616d1f1260eace3533aa1bcdba2fcff421729040e75aa38aea1 1604 main/binary-amd64/Packages
+ a21a73bd5413c8bad451658d76ed6270284c5c5d06a9cc91f4873994995e2112 668 main/binary-amd64/Packages.gz
 -----BEGIN PGP SIGNATURE-----
 
-iHUEARYKAB0WIQSNXw+ChogMTtnfBQPIScxA2ZCRuAUCas9DpQAKCRDIScxA2ZCR
-uGlzAP4mbOJo5y9lmQFThlpAqJmpSZKhH2lLKvMYbLqqXag/OwEAufMGBxwyCG8Q
-8seipsHtpBfxf1NwWyRx7iLQX3OUgAg=
-=VWi+
+iHUEARYKAB0WIQSNXw+ChogMTtnfBQPIScxA2ZCRuAUCas9FQQAKCRDIScxA2ZCR
+uFDxAP98cVhWBGrdzA0xP7h2nkpNAkn0vccvdTPyillUrumDxQEA4P07PZcNi552
+hMevF+6XldItRMibozNheni5IoEgGww=
+=O4sV
 -----END PGP SIGNATURE-----

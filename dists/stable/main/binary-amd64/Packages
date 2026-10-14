@@ -16,3 +16,21 @@ Description: Chat-list organizer for AI coding sessions (Claude Code, Codex) and
  embedded Konsole terminals, one-click resume, adoption of external sessions,
  and archiving. Sessions stay forever resumable.
 
+Package: rezoom
+Version: 1.2.1
+Architecture: amd64
+Maintainer: Pavel <254324686+pavel-bex@users.noreply.github.com>
+Depends: libqt6widgets6, libqt6core6 | libqt6core6t64, libkf6parts6, libkf6coreaddons6, konsole-kpart, konsole
+Recommends: tmux, reptyr, jq
+Filename: pool/main/rezoom_1.2.1_amd64.deb
+Size: 370966
+MD5sum: c9877e2d524ebe321c49e56412bc6ba3
+SHA1: 90e6b29432cda590d27644c7bd22542e5b31b372
+SHA256: 196552e72eaab8ef506bcfc60de74925b293d9081b297785a62f37c3c7482b26
+Section: utils
+Priority: optional
+Description: Chat-list organizer for AI coding sessions (Claude Code, Codex) and terminals
+ Left-panel chat list of claude/ssh/tmux/shell sessions with live presence,
+ embedded Konsole terminals, one-click resume, adoption of external sessions,
+ and archiving. Sessions stay forever resumable.
+
