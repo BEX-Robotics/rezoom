@@ -5,7 +5,7 @@ Origin: BEX
 Label: BEX
 Suite: stable
 Codename: stable
-Date: Wed, 14 Oct 2026 09:02:57 +0000
+Date: Wed, 14 Oct 2026 11:32:38 +0000
 Architectures: amd64
 Components: main
 Description: BEX Robotics packages
@@ -14,8 +14,8 @@ SHA256:
  a21a73bd5413c8bad451658d76ed6270284c5c5d06a9cc91f4873994995e2112 668 main/binary-amd64/Packages.gz
 -----BEGIN PGP SIGNATURE-----
 
-iHUEARYKAB0WIQSNXw+ChogMTtnfBQPIScxA2ZCRuAUCas9FQQAKCRDIScxA2ZCR
-uFDxAP98cVhWBGrdzA0xP7h2nkpNAkn0vccvdTPyillUrumDxQEA4P07PZcNi552
-hMevF+6XldItRMibozNheni5IoEgGww=
-=O4sV
+iHUEARYKAB0WIQSNXw+ChogMTtnfBQPIScxA2ZCRuAUCas9oVgAKCRDIScxA2ZCR
+uGwzAP0RS2LDjCxcEsSHyyTU6KvAebPiNT1/IezoCJeO2GNSfQEAjfbJUarmw/RG
+rbMkIm8FVLnGvanHUQ67FhuAyjKn3wo=
+=lcJU
 -----END PGP SIGNATURE-----

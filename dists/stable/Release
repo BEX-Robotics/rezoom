@@ -2,7 +2,7 @@ Origin: BEX
 Label: BEX
 Suite: stable
 Codename: stable
-Date: Wed, 14 Oct 2026 09:02:57 +0000
+Date: Wed, 14 Oct 2026 11:32:38 +0000
 Architectures: amd64
 Components: main
 Description: BEX Robotics packages
