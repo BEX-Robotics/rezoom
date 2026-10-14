@@ -67,12 +67,13 @@ static int cmdResume(SessionStore &store, LiveRegistry &registry, Templates &tem
     const Chat *c = hits[0];
     const auto live = registry.entryForSession(c->claudeSessionID);
 
-    if (live) {
+    if (live && attachCommand(*live).isEmpty()) {
         fprintf(stderr, "already running (pid %d, %s)\n", live->pid, qPrintable(live->status));
         return 3;
     }
 
-    const QString command = templates.resolveFor(*c);
+    // A background session is attached to instead of resumed.
+    const QString command = live ? attachCommand(*live) : templates.resolveFor(*c);
 
     if (printOnly) {
         printf("%s\n", qPrintable(command));
@@ -94,7 +95,7 @@ static int cmdAdoptRunning(SessionStore &store, LiveRegistry &registry) {
             const bool tracked = std::any_of(list.cbegin(), list.cend(),
                 [&e](const Chat &c) { return c.claudeSessionID == e.sessionID; });
 
-            if (tracked || !autoAdoptable(e))
+            if (tracked || !autoAdoptable(e) || followContinuation(list, e))
                 continue;
 
             Chat c = Chat::create("claude");

@@ -27,5 +27,9 @@ QString previewForSession(const QString &sessionID);
 // Most recent message text (user or assistant) from the transcript tail —
 // the WhatsApp-style "last message" line.
 QString lastMessagePreview(const QString &sessionID);
+
+// The session this one was continued in (sent to the background), from the
+// transcript tail; empty when it wasn't.
+QString continuedIn(const QString &sessionID);
 TranscriptInfo readInfo(const QString &path);
 }

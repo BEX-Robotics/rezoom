@@ -39,7 +39,7 @@ public:
 
     // Is claude/codex actually running in this pane (vs. an idle shell)?
     bool hasAgent() const;
-    void showExternalBanner(int pid);
+    void showExternalBanner(int pid, bool background = false);
     void hideExternalBanner();
     bool hasExternalBanner() const { return bannerMode == BannerMode::External; }
 

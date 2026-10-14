@@ -9,6 +9,7 @@
 
 #include "liveregistry.h"
 #include "processscout.h"
+#include "transcriptindex.h"
 #include "zones.h"
 
 static QString sessionsDir(const Zones::Zone &z) {
@@ -39,7 +40,7 @@ LiveRegistry::LiveRegistry(QObject *parent) : QObject(parent) {
 }
 
 bool autoAdoptable(const LiveEntry &e) {
-    if (e.kind != QLatin1String("interactive"))
+    if (e.kind != QLatin1String("interactive") && e.kind != QLatin1String("bg"))
         return false;
 
     for (const char *scratch : {"/tmp/", "/var/tmp/", "/run/", "/dev/"})
@@ -47,6 +48,31 @@ bool autoAdoptable(const LiveEntry &e) {
             return false;
 
     return !ProcessScout::hasAncestorComm(e.pid, QStringLiteral("claude"));
+}
+
+bool followContinuation(QList<Chat> &list, const LiveEntry &e) {
+    if (e.kind != QLatin1String("bg"))
+        return false;
+
+    for (Chat &c : list) {
+        if (c.kind != "claude" || c.cwd != e.cwd || c.zone != e.zone)
+            continue;
+
+        if (TranscriptIndex::continuedIn(c.claudeSessionID) == e.sessionID) {
+            c.claudeSessionID = e.sessionID;
+            return true;
+        }
+    }
+
+    return false;
+}
+
+QString attachCommand(const LiveEntry &e) {
+    if (e.kind != QLatin1String("bg"))
+        return {};
+
+    const QString id = e.jobID.isEmpty() ? e.sessionID : e.jobID;
+    return Zones::envPrefix(e.zone) + QStringLiteral("claude attach ") + id;
 }
 
 bool LiveRegistry::pidAlive(int pid) {
@@ -66,6 +92,7 @@ static std::optional<LiveEntry> readPidFileIn(const Zones::Zone &z, int pid) {
     e.sessionID = o["sessionId"].toString();
     e.status = o["status"].toString();
     e.kind = o["kind"].toString();
+    e.jobID = o["jobId"].toString();
     e.name = o["name"].toString();
     e.nameSource = o["nameSource"].toString();
     e.cwd = o["cwd"].toString();

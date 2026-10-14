@@ -122,6 +122,32 @@ QString TranscriptIndex::pathForSession(const QString &sessionID) {
     return {};
 }
 
+QString TranscriptIndex::continuedIn(const QString &sessionID) {
+    const QString path = sessionID.isEmpty() ? QString() : pathForSession(sessionID);
+
+    if (path.isEmpty())
+        return {};
+
+    QFile f(path);
+
+    if (!f.open(QIODevice::ReadOnly))
+        return {};
+
+    const qint64 tailBytes = 64 * 1024;
+
+    if (f.size() > tailBytes)
+        f.seek(f.size() - tailBytes);
+
+    static const QRegularExpression re("\"continuedInSessionId\":\"([0-9a-f-]{36})\"");
+    QString last;
+    auto it = re.globalMatch(QString::fromUtf8(f.readAll()));
+
+    while (it.hasNext())
+        last = it.next().captured(1);
+
+    return last;
+}
+
 QString TranscriptIndex::lastMessagePreview(const QString &sessionID) {
     const QString path = pathForSession(sessionID);
 

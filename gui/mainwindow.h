@@ -125,6 +125,8 @@ private:
     int externalPID(const Chat &c) const;
     int beamablePID(const Chat &c) const;
     bool refuseUnbeamable(int pid);
+    QString attachCommand(const Chat &c) const;
+    bool attachBackground(const QString &chatID);
     void scanExternalSsh();
     const Chat *sshChatFor(const QString &entry, QList<Chat> &fresh);
     void noteRemoteTransitions(const QHash<QString, QString> &states);

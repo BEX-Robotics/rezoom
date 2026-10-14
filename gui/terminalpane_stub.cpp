@@ -50,7 +50,7 @@ bool TerminalPane::hasAgent() const {
     return false;
 }
 
-void TerminalPane::showExternalBanner(int) {
+void TerminalPane::showExternalBanner(int, bool) {
 }
 
 void TerminalPane::hideExternalBanner() {

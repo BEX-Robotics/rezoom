@@ -5,6 +5,7 @@
 #include <QObject>
 #include <QTimer>
 
+#include "chat.h"
 #include "zones.h"
 
 class QFileSystemWatcher;
@@ -15,7 +16,8 @@ struct LiveEntry {
     int pid = 0;
     QString sessionID;
     QString status; // "idle" | "busy" | "shell"
-    QString kind;   // "interactive" for real CLI sessions
+    QString kind;   // "interactive" for real CLI sessions, "bg" for background ones
+    QString jobID;  // background sessions: the id `claude attach` takes
     QString name;
     QString nameSource; // "derived" = machine-made, prefer transcript titles
     QString cwd;
@@ -30,6 +32,15 @@ struct LiveEntry {
 // scratch dir (/tmp claude = tooling like commit reviewers, never a
 // conversation), and not spawned by another claude.
 bool autoAdoptable(const LiveEntry &e);
+
+// A conversation sent to the background goes on under a new session id, and
+// the old transcript ends with a "continued-in" record naming it. For such a
+// background entry, re-point the chat that held the old id; true = done.
+bool followContinuation(QList<Chat> &list, const LiveEntry &e);
+
+// "claude attach <id>" for a background entry (it runs on claude's own pty
+// host: attaching is how it comes into a terminal), "" for any other.
+QString attachCommand(const LiveEntry &e);
 
 class LiveRegistry : public QObject {
     Q_OBJECT

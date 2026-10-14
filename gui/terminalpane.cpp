@@ -193,16 +193,19 @@ void TerminalPane::showSshBanner() {
 
 // The conversation this pane belongs to is running in another window, while
 // this pane only holds an idle shell — offer to pull it in right here.
-void TerminalPane::showExternalBanner(int pid) {
+void TerminalPane::showExternalBanner(int pid, bool background) {
     if (bannerMode == BannerMode::SshEnded || bannerMode == BannerMode::HuskKept)
         return; // don't hide a pending reconnect or warning
 
     externalPID = pid;
 
     // \xc2\xb7 = UTF-8 for "·"
-    bannerText->setText(tr("This conversation is running in another window (pid %1) "
-                           "\xc2\xb7 Ctrl+Shift+Return beams it in here").arg(pid));
-    bannerButton->setText(tr("Beam it in here"));
+    bannerText->setText(background
+        ? tr("This conversation is running as a Claude background session (pid %1) "
+             "\xc2\xb7 Ctrl+Shift+Return attaches it here").arg(pid)
+        : tr("This conversation is running in another window (pid %1) "
+             "\xc2\xb7 Ctrl+Shift+Return beams it in here").arg(pid));
+    bannerButton->setText(background ? tr("Attach here") : tr("Beam it in here"));
     bannerMode = BannerMode::External;
     banner->show();
 }

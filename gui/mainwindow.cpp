@@ -615,7 +615,9 @@ void MainWindow::refreshView(const QString &chatID) {
 
     const auto live = liveFor(*c);
     const SessionHealth::Health health = live ? SessionHealth::of(*live) : SessionHealth::Health{};
-    view->resume()->setChat(*c, templates.resolveFor(*c), externalPID(*c), health);
+    const QString attach = attachCommand(*c);
+    view->resume()->setChat(*c, attach.isEmpty() ? templates.resolveFor(*c) : attach,
+                            externalPID(*c), health);
 }
 
 void MainWindow::selectChat(const QString &chatID) {
@@ -997,11 +999,16 @@ int MainWindow::externalPID(const Chat &c) const {
     return sshPIDs.value(c.id);
 }
 
-// externalPID, but only when reptyr can take it: a leftover claude whose
-// conversation moved on to a Claude background session keeps running with
-// no terminal at all, and reptyr can only fail on it.
+// externalPID, but only when it can come in: a background session is
+// attached to; anything else needs a pty for reptyr — a leftover claude whose
+// conversation moved on to a background session has none, and reptyr can
+// only fail on it.
 int MainWindow::beamablePID(const Chat &c) const {
     const int pid = externalPID(c);
+
+    if (pid > 0 && !attachCommand(c).isEmpty())
+        return pid;
+
     return pid > 0 && ProcessScout::onPty(pid) ? pid : 0;
 }
 
@@ -1205,8 +1212,9 @@ void MainWindow::updateAttention() {
 #endif
 }
 
-// The WhatsApp model: a new interactive claude session anywhere on the
-// machine becomes a chat by itself. Sessions inside our own panes are
+// The WhatsApp model: a new interactive or background claude session
+// anywhere on the machine becomes a chat by itself — except a conversation
+// sent to the background, whose existing chat follows it instead. Sessions inside our own panes are
 // excluded — onChildClaude() re-binds those (a /clear changes the sid, and
 // adopting the new sid here would duplicate the chat).
 void MainWindow::autoAdoptNew() {
@@ -1234,7 +1242,7 @@ void MainWindow::autoAdoptNew() {
             const bool tracked = std::any_of(list.cbegin(), list.cend(),
                 [&e](const Chat &c) { return c.claudeSessionID == e.sessionID; });
 
-            if (!tracked)
+            if (!tracked && !followContinuation(list, e))
                 list.append(chatFromLive(e));
         }
     });
@@ -1436,7 +1444,7 @@ void MainWindow::showContextMenu(const QPoint &pos) {
             menu.addAction(tr("Go to its window"), this, [this, pid] { raiseExternal(pid); });
 
         // \xe2\xa4\xb5 = UTF-8 for "⤵" — reptyr-only, hidden where it can't run
-        if (Reptyr::supported() && ProcessScout::onPty(pid))
+        if ((Reptyr::supported() && ProcessScout::onPty(pid)) || !attachCommand(*c).isEmpty())
             menu.addAction(tr("\xe2\xa4\xb5 Beam it in"), this, [this, id] { pullInLive(id); });
     }
 
@@ -1576,7 +1584,7 @@ void MainWindow::pullInLive(const QString &chatID) {
 
     const int pid = externalPID(*c);
 
-    if (pid <= 0 || refuseUnbeamable(pid))
+    if (pid <= 0 || attachBackground(chatID) || refuseUnbeamable(pid))
         return;
 
     if (panes.contains(chatID)) { // idle pane left behind — reuse it
@@ -1601,12 +1609,39 @@ void MainWindow::pullInLive(const QString &chatID) {
     QTimer::singleShot(1000, this, [this, chatID, pid] { verifyPull(chatID, pid); });
 }
 
+// A Claude background session runs on claude's own pty host: it is
+// attached to — lossless, no reptyr, no old window left behind.
+QString MainWindow::attachCommand(const Chat &c) const {
+    const auto live = liveFor(c);
+    return live ? ::attachCommand(*live) : QString();
+}
+
+// Beam-in for a background session: attach in the chat's pane; true = done.
+bool MainWindow::attachBackground(const QString &chatID) {
+    const Chat *c = store.find(chatID);
+    const QString cmd = c ? attachCommand(*c) : QString();
+
+    if (cmd.isEmpty())
+        return false;
+
+    TerminalPane *pane = panes.value(chatID);
+
+    if (!pane) {
+        launchChat(chatID, cmd);
+        return true;
+    }
+
+    pane->hideExternalBanner();
+    pane->typeCommand(cmd);
+    return true;
+}
+
 // Beam an external session into this chat's existing (idle) pane: type the
 // reptyr command into its shell instead of opening a second pane.
 void MainWindow::beamIntoPane(const QString &chatID, int pid) {
     TerminalPane *pane = panes.value(chatID);
 
-    if (!pane || pid <= 0 || refuseUnbeamable(pid))
+    if (!pane || pid <= 0 || attachBackground(chatID) || refuseUnbeamable(pid))
         return;
 
     const Reptyr::Status rs = Reptyr::status();
@@ -1624,14 +1659,15 @@ void MainWindow::beamIntoPane(const QString &chatID, int pid) {
 }
 
 // Rows running in another window get a beam-in button — only where a live
-// move can actually happen (reptyr on this platform, live moves on).
+// move can actually happen (reptyr on this platform, live moves on), or
+// where claude attaches a background session.
 void MainWindow::updateBeamable() {
+    const bool reptyr = Reptyr::supported() && templates.liveMoves();
     QSet<QString> ids;
 
-    if (Reptyr::supported() && templates.liveMoves())
-        for (const Chat &c : store.chats())
-            if (!c.archived && beamablePID(c) > 0)
-                ids.insert(c.id);
+    for (const Chat &c : store.chats())
+        if (!c.archived && beamablePID(c) > 0 && (reptyr || !attachCommand(c).isEmpty()))
+            ids.insert(c.id);
 
     model->setBeamable(ids);
 }
@@ -1643,7 +1679,7 @@ void MainWindow::updatePaneBanners() {
         const int pid = c ? beamablePID(*c) : 0;
 
         if (pid > 0)
-            it.value()->showExternalBanner(pid);
+            it.value()->showExternalBanner(pid, !attachCommand(*c).isEmpty());
         else
             it.value()->hideExternalBanner();
     }
@@ -2173,6 +2209,8 @@ void MainWindow::resumeByQuery(const QString &query) {
 
         if (!registry.entryForSession(c.claudeSessionID))
             launchChat(c.id);
+        else
+            attachBackground(c.id); // lossless, unlike a reptyr move
 
         return;
     }
