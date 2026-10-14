@@ -1,0 +1,11 @@
+Origin: BEX
+Label: BEX
+Suite: stable
+Codename: stable
+Date: Wed, 14 Oct 2026 08:56:05 +0000
+Architectures: amd64
+Components: main
+Description: BEX Robotics packages
+SHA256:
+ a0960265334410854794631803df03b12bb3b9e757714ce898a828c977db782a 802 main/binary-amd64/Packages
+ eb9315b3ad5d2eba42dfd19ca547d54882a30b71d8fe7e24f970eb4425feffd5 544 main/binary-amd64/Packages.gz
