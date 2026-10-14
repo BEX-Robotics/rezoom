@@ -62,4 +62,25 @@ gpg --batch --yes --clearsign -o "dists/$SUITE/InRelease" "dists/$SUITE/Release"
 gpg --batch --yes -abs -o "dists/$SUITE/Release.gpg" "dists/$SUITE/Release"
 gpg --batch --yes --armor --export > bex.asc
 touch .nojekyll
+
+# Whoever opens the repo URL in a browser gets the instructions, not a 404.
+cat > index.html <<'EOF_HTML'
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rezoom apt repository</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font: 16px/1.5 system-ui, sans-serif; max-width: 46rem; margin: 3rem auto; padding: 0 1rem; }
+  pre { background: #8882; padding: 1rem; overflow-x: auto; border-radius: 6px; }
+</style>
+<h1>Rezoom apt repository</h1>
+<p>Signed packages of <a href="https://github.com/BEX-Robotics/rezoom">Rezoom</a> for
+Debian/Ubuntu 25.04 or newer (KF6). Add it once; <code>apt upgrade</code> brings every
+new release.</p>
+<pre>sudo curl -fsSLo /etc/apt/keyrings/bex.asc https://bex-robotics.github.io/rezoom/bex.asc
+echo "deb [signed-by=/etc/apt/keyrings/bex.asc] https://bex-robotics.github.io/rezoom stable main" |
+    sudo tee /etc/apt/sources.list.d/rezoom.list
+sudo apt update &amp;&amp; sudo apt install rezoom</pre>
+EOF_HTML
 echo "published: $(ls $POOL | tr '\n' ' ')"
