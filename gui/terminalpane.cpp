@@ -1,8 +1,10 @@
 #include <KParts/ReadOnlyPart>
 #include <KPluginFactory>
 #include <KPluginMetaData>
+#include <QCoreApplication>
 #include <QFrame>
 #include <QHBoxLayout>
+#include <QKeyEvent>
 #include <QLabel>
 #include <QPushButton>
 #include <QRegularExpression>
@@ -69,6 +71,23 @@ TerminalPane::TerminalPane(const QString &chatID, const QString &profile, QWidge
 
     connect(&timer, &QTimer::timeout, this, &TerminalPane::poll);
     timer.start(1500);
+
+    // Konsole creates and drops its display widgets on its own (splits),
+    // so Enter is watched app-wide and kept if it landed inside this pane.
+    QCoreApplication::instance()->installEventFilter(this);
+}
+
+bool TerminalPane::eventFilter(QObject *obj, QEvent *ev) {
+    if (ev->type() != QEvent::KeyPress || !obj->isWidgetType())
+        return false;
+
+    const auto *key = static_cast<QKeyEvent *>(ev);
+    const bool enter = key->key() == Qt::Key_Return || key->key() == Qt::Key_Enter;
+
+    if (enter && !key->isAutoRepeat() && isAncestorOf(static_cast<QWidget *>(obj)))
+        emit userSent(id);
+
+    return false;
 }
 
 void TerminalPane::emitTerminated() {

@@ -55,9 +55,11 @@ signals:
     void beamHereRequested(const QString &chatID, int externalPID);
     void childSsh(const QString &chatID, const QStringList &cmdline);
     void childTmux(const QString &chatID, const QStringList &cmdline);
+    void userSent(const QString &chatID); // Enter pressed inside the pane
 
 protected:
     void showEvent(QShowEvent *ev) override;
+    bool eventFilter(QObject *obj, QEvent *ev) override;
 
 private slots:
     void poll();

@@ -671,6 +671,7 @@ void MainWindow::wirePane(TerminalPane *pane) {
     connect(pane, &TerminalPane::childCodex, this, &MainWindow::onChildCodex);
     connect(pane, &TerminalPane::childSsh, this, &MainWindow::onChildSsh);
     connect(pane, &TerminalPane::childTmux, this, &MainWindow::onChildTmux);
+    connect(pane, &TerminalPane::userSent, this, &MainWindow::bumpToTop);
     connect(pane, &TerminalPane::captionChanged, this,
             [this](const QString &id, const QString &caption) {
                 if (liveTitles.value(id) == caption)
@@ -896,6 +897,11 @@ void MainWindow::scanChatDelta(const Chat &c, RegistryDeltas &d) {
             d.busyTails.insert(c.id, tail);
     }
 
+    // A turn starting — the user sent something, here or in any window —
+    // moves the chat up now, not when the reply lands.
+    if (now == "busy" && !before.isEmpty() && before != "busy")
+        d.turnsStarted.insert(c.id);
+
     if (before == "busy" && now == "idle") {
         const QString last = TranscriptIndex::lastMessagePreview(c.claudeSessionID);
 
@@ -924,21 +930,24 @@ void MainWindow::onRegistryUpdated() {
     const QHash<QString, QString> freshPreviews = d.previews;
     const QHash<QString, QString> freshTitles = d.titles;
     const QHash<QString, QString> busyTails = d.busyTails;
+    const QSet<QString> started = d.turnsStarted;
 
     if (busyTails != livePreviews) {
         livePreviews = busyTails;
         model->setLivePreviews(livePreviews);
     }
 
-    if (!freshPreviews.isEmpty() || !freshTitles.isEmpty())
-        store.mutate([&freshPreviews, &freshTitles](QList<Chat> &list) {
+    if (!freshPreviews.isEmpty() || !freshTitles.isEmpty() || !started.isEmpty())
+        store.mutate([&freshPreviews, &freshTitles, &started](QList<Chat> &list) {
             const qint64 now = QDateTime::currentMSecsSinceEpoch();
 
             for (Chat &c : list) {
-                if (freshPreviews.contains(c.id)) {
+                if (freshPreviews.contains(c.id))
                     c.preview = freshPreviews.value(c.id);
-                    c.lastActiveAt = now; // a finished turn moves the chat up
-                }
+
+                // a turn starting or finishing moves the chat up
+                if (freshPreviews.contains(c.id) || started.contains(c.id))
+                    c.lastActiveAt = now;
 
                 if (freshTitles.contains(c.id))
                     c.title = freshTitles.value(c.id);
@@ -965,6 +974,25 @@ void MainWindow::onRegistryUpdated() {
     refreshExternalTitles();
     autoAdoptNew();
     updateAttention();
+}
+
+// Enter in a pane: the chat goes to the top right away. One already on top
+// and bumped within the minute is left alone — no store write per keystroke.
+void MainWindow::bumpToTop(const QString &chatID) {
+    const Chat *c = store.find(chatID);
+
+    if (!c)
+        return;
+
+    const auto above = [c](const Chat &o) {
+        return o.id != c->id && o.lastActiveAt >= c->lastActiveAt;
+    };
+    const bool fresh = QDateTime::currentMSecsSinceEpoch() - c->lastActiveAt < 60 * 1000;
+
+    if (fresh && std::none_of(store.chats().begin(), store.chats().end(), above))
+        return;
+
+    store.touch(chatID);
 }
 
 // A sid claimed by several pids flip-flops the deduped registry entry;

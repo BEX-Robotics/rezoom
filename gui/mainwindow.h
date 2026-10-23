@@ -50,6 +50,7 @@ private:
         QHash<QString, QString> titles;
         QHash<QString, QString> previews;
         QHash<QString, QString> busyTails;
+        QSet<QString> turnsStarted;
         bool unreadChanged = false;
     };
 
@@ -120,6 +121,7 @@ private:
     void focusSearch();
     void openShortcuts();
     void scanChatDelta(const Chat &c, RegistryDeltas &d);
+    void bumpToTop(const QString &chatID);
     void wirePane(TerminalPane *pane);
     std::optional<LiveEntry> liveFor(const Chat &c) const;
     int externalPID(const Chat &c) const;

@@ -33,6 +33,10 @@ void TerminalPane::showEvent(QShowEvent *ev) {
     QWidget::showEvent(ev);
 }
 
+bool TerminalPane::eventFilter(QObject *, QEvent *) {
+    return false;
+}
+
 void TerminalPane::poll() {
 }
 
